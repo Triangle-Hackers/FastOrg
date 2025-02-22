@@ -1,0 +1,59 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.ai-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.org-name,
+.software-name {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.navbar ul {
+    list-style: none;
+    display: flex;
+    gap: 2rem;
+    margin: 0;
+    padding: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.navbar li a {
+    font-size: 1.5rem;
+    text-decoration: none;
+    color: #333;
+}
+
+.ai-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.responses {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.chat-box {
+    border-top: 1px solid #ddd;
+    padding: 1rem;
+    background: #fff;
+}

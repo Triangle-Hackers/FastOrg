@@ -1,0 +1,82 @@
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+.home-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.org-name,
+.software-name {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.navbar ul {
+    list-style: none;
+    display: flex;
+    gap: 2rem;
+    margin: 0;
+    padding: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.navbar li a {
+    font-size: 1.5rem;
+    text-decoration: none;
+    color: #333;
+}
+
+.main-content-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.content {
+    display: flex;
+    gap: 2rem;
+    width: 100%;
+}
+
+.operations-section {
+    flex: 1;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.operations-section .buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.operations-section button {
+    padding: 0.75rem;
+    border: none;
+    background-color: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.info-section {
+    flex: 2;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    border-radius: 8px;
+}
