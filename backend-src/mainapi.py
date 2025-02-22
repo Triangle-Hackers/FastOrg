@@ -51,6 +51,8 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         )
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
 
+
+
 # Configure OAuth2 scheme
 auth0_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
@@ -64,9 +66,23 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
 
 # Update FastAPI app configuration with proper CORS settings
 app = FastAPI(
-    title="OrgCRM API",
-    description="API with Auth0 authentication for organization management",
+    title="OrgCRM",
+    description="API with Auth0 authentication",
     version="1.0.0",
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    swagger_ui_init_oauth={
+        "clientId": os.getenv("AUTH0_CLIENT_ID"),
+        "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
+        "scopes": ["openid", "profile", "email"],
+        "usePkceWithAuthorizationCodeGrant": True,
+    }
+)
+
+
+# Configure session middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("APP_SECRET_KEY")
 )
 
 app.add_middleware(
@@ -79,11 +95,7 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Configure session middleware
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("APP_SECRET_KEY")
-)
+
 
 # Configure OAuth for login flow
 oauth = OAuth()
@@ -123,8 +135,22 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
             return {"user": user}
     """
     user = request.session.get("user")
+    logger.info(f"Session data: {request.session}")
+    logger.info(f"User data from session: {user}")
+    
     if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        logger.error("Authentication failed: No user found in session")
+        logger.debug(f"Request headers: {request.headers}")
+        logger.debug(f"Request cookies: {request.cookies}")
+        raise HTTPException(
+            status_code=401, 
+            detail={
+                "error": "Not authenticated",
+                "message": "No user found in session. Please ensure you are logged in.",
+                "session_exists": bool(request.session),
+                "token_provided": bool(token)
+            }
+        )
     return user
 
 #######################

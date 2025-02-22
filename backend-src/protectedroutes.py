@@ -4,6 +4,10 @@ import os
 import requests
 from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
+import logging
+
+logger = logging.getLogger(__name__)
+
 sub_router = APIRouter()
 
 async def get_auth0_client():
@@ -47,8 +51,11 @@ async def create_org(
     request: Request
 ):
     try:
-        # User is already authenticated due to the require_auth dependency
-        user = request.session["user"]
+        # Get user data safely
+        user = request.session.get("user")
+        if not user:
+            logger.error("No user found in session")
+            raise HTTPException(status_code=401, detail="Not authenticated")
         
         domain = os.getenv("AUTH0_DOMAIN")
         client_id = os.getenv("AUTH0_CLIENT_ID")
