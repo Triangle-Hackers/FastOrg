@@ -19,19 +19,21 @@ def main():
         reader = csv.DictReader(csvfile)
         
         for row in reader:
-            doc = {
-                "name": row["Enter your name"],
-                "class": row["Year/Class"],
-                "address": row["Home address"],
-                "gpa": row["GPA"],
-                "major": row["Major"],
-                "grad": row["Expected Graduating Date"],
-                "phone": row["Phone Number"],
-                "email": row["Email Address"],
-                "shirt": row["T-Shirt Size"]
-            }
+            checkEmail = row["Email"]
+            if not collection.find_one({"email": checkEmail}):
+                doc = {
+                    "name": row["Enter your name"],
+                    "class": row["Year/Class"],
+                    "address": row["Home address"],
+                    "gpa": row["GPA"],
+                    "major": row["Major"],
+                    "grad": row["Expected Graduating Date"],
+                    "phone": row["Phone Number"],
+                    "email": row["Email Address"],
+                    "shirt": row["T-Shirt Size"]
+                }
             
-            documents.append(doc)
+                documents.append(doc)
     
     if documents:
         collection.insert_many(documents)
