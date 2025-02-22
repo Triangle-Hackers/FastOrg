@@ -118,40 +118,70 @@ oauth.register(
 async def require_auth(request: Request, token: str = Security(auth0_scheme)):
     """
     Authentication dependency that protects routes from unauthorized access.
-    Used as a FastAPI dependency to enforce authentication on protected endpoints.
-    
-    Args:
-        request: FastAPI Request object containing session data
-    
-    Returns:
-        dict: User object from session if authenticated
-    
-    Raises:
-        HTTPException: 401 error if user is not authenticated
-    
-    Usage:
-        @app.get("/protected")
-        async def protected_route(user: dict = Depends(require_auth)):
-            return {"user": user}
+    Checks both session and token-based authentication.
     """
+    # First check session-based auth
     user = request.session.get("user")
     logger.info(f"Session data: {request.session}")
     logger.info(f"User data from session: {user}")
     
-    if not user:
-        logger.error("Authentication failed: No user found in session")
-        logger.debug(f"Request headers: {request.headers}")
-        logger.debug(f"Request cookies: {request.cookies}")
-        raise HTTPException(
-            status_code=401, 
-            detail={
-                "error": "Not authenticated",
-                "message": "No user found in session. Please ensure you are logged in.",
-                "session_exists": bool(request.session),
-                "token_provided": bool(token)
+    if user:
+        return user
+        
+    # If no session, verify token
+    if token:
+        try:
+            logger.info(f"Received token: {token[:10]}...")  # Log first 10 chars of token
+            
+            # Create token object expected by Auth0 client
+            token_obj = {
+                "access_token": token,
+                "token_type": "Bearer"
             }
-        )
-    return user
+            
+            # Log the full token object for debugging
+            logger.info(f"Using token object: {token_obj}")
+            
+            # Try direct HTTP headers approach
+            headers = {
+                "Authorization": f"Bearer {token}"
+            }
+            logger.info(f"Using headers: {headers}")
+            
+            # Get user info from Auth0 using the client's HTTP session
+            userinfo = await oauth.auth0._client.get(
+                "userinfo",
+                headers=headers,
+                token=token_obj
+            )
+            logger.info(f"Successfully got userinfo: {userinfo}")
+            
+            # Store the user info in session
+            request.session["user"] = userinfo
+            return userinfo
+            
+        except Exception as e:
+            logger.error(f"Token verification failed - Full error: {str(e)}")
+            logger.error(f"Token type: {type(token)}")
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "error": "Token verification failed",
+                    "message": str(e),
+                    "token_type": str(type(token))
+                }
+            )
+    
+    # If neither session nor token authentication worked
+    raise HTTPException(
+        status_code=401, 
+        detail={
+            "error": "Not authenticated",
+            "message": "No valid session or token found. Please ensure you are logged in.",
+            "session_exists": bool(request.session),
+            "token_provided": bool(token)
+        }
+    )
 
 #######################
 # Authentication Flow #
