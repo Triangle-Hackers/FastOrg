@@ -132,3 +132,40 @@ async def protected_route(user: dict = Depends(require_auth)):
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
+
+# OpenAI SQL generation endpoint
+@app.post("/generate-sql")
+async def generate_sql(prompt: str):
+    """
+    Generates SQL based on natural language prompt using OpenAI
+    """
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # Create the completion request
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a SQL expert. Generate only SQL code without explanation."},
+                {"role": "user", "content": f"Generate SQL query for: {prompt}"}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        # Extract the SQL from response
+        sql = response.choices[0].message.content.strip()
+        
+        return {
+            "sql": sql,
+            "prompt": prompt
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "message": "Failed to generate SQL"
+            }
+        )
