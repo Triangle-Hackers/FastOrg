@@ -1,3 +1,27 @@
+"""
+Main API Module
+
+This module serves as the primary FastAPI application entry point and handles:
+1. Authentication flows with Auth0
+2. Session management
+3. Protected and public routes
+4. OpenAI integration for SQL generation
+
+The application uses:
+- FastAPI for the web framework
+- Auth0 for authentication
+- Starlette sessions for state management
+- OpenAI for natural language processing
+
+Environment Variables Required:
+- AUTH0_DOMAIN: Auth0 tenant domain
+- AUTH0_CLIENT_ID: Auth0 application client ID
+- AUTH0_CLIENT_SECRET: Auth0 application client secret
+- APP_SECRET_KEY: Secret key for session encryption
+- OPENAI_API_KEY: API key for OpenAI services
+"""
+
+import os
 from typing import Union
 from fastapi import FastAPI, Depends, Request, HTTPException, Security
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -5,22 +29,42 @@ from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
 from fastapi.security import OAuth2
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
-import os
 from dotenv import find_dotenv, load_dotenv
 from functools import wraps
 from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from protectedroutes import sub_router  # Add this import
+from protectedroutes import sub_router
 
 # Load environment variables
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
-# Add OAuth2 scheme for Swagger UI
+#############################
+# Swagger UI Configuration  #
+#############################
+
 class OAuth2AuthorizationCodeBearer(OAuth2):
+    """
+    Custom OAuth2 scheme for Swagger UI that implements the Authorization Code flow.
+    This enables API documentation testing with live Auth0 authentication.
+    
+    The Authorization Code flow:
+    1. User initiates auth in Swagger UI
+    2. Redirects to Auth0 login
+    3. User authenticates with Auth0
+    4. Auth0 redirects back with auth code
+    5. Code is exchanged for access token
+    6. Token is used for API requests
+    
+    Attributes:
+        authorizationUrl: Auth0 authorization endpoint
+        tokenUrl: Auth0 token endpoint
+        refreshUrl: URL for refreshing expired tokens
+        scopes: Dictionary of available OAuth scopes
+    """
     def __init__(
         self,
         authorizationUrl: str,
@@ -29,6 +73,16 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         scheme_name: str = None,
         scopes: dict = None,
     ):
+        """
+        Initialize OAuth2 scheme with Auth0 endpoints and scopes.
+        
+        Args:
+            authorizationUrl: Auth0 authorization endpoint URL
+            tokenUrl: Auth0 token endpoint URL
+            refreshUrl: Optional token refresh endpoint URL
+            scheme_name: Optional name for the security scheme
+            scopes: Optional dictionary of OAuth scopes
+        """
         flows = OAuthFlowsModel(
             authorizationCode={
                 "authorizationUrl": authorizationUrl,
@@ -39,7 +93,7 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         )
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
 
-# Configure OAuth2 scheme
+# Configure OAuth2 scheme for Swagger UI with Auth0 endpoints
 auth0_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
     tokenUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
@@ -50,7 +104,7 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
     }
 )
 
-# Update FastAPI app configuration
+# Update FastAPI app configuration with OAuth2 settings
 app = FastAPI(
     title="OrgCRM",
     description="API with Auth0 authentication",
