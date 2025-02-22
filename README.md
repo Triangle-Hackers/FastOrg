@@ -27,3 +27,7 @@ pip install -r requirements.txt
 ```bash
 fastapi dev mainapi.py
 ```
+
+```bash
+npm run dev
+```
