@@ -132,25 +132,31 @@ async def logout(request: Request):
     This endpoint ensures complete logout from both the application and Auth0.
     
     Flow:
-    1. Clear local session data
-    2. Redirect to Auth0's logout endpoint
-    3. Auth0 clears its session
-    4. User is logged out from both systems
+    1. Clear local session
+    2. Construct absolute return URL
+    3. Redirect to Auth0 logout with proper parameters
     
     Args:
         request: FastAPI Request object containing session to clear
     
     Returns:
         RedirectResponse: Redirects to Auth0's logout endpoint
-    
-    Note:
-        The Auth0 logout endpoint handles the final redirect back to the application
     """
+    # Clear the local session first
     request.session.clear()
-    return RedirectResponse(
-        url=f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
-        f"client_id={os.getenv('AUTH0_CLIENT_ID')}"
+    
+    # Construct absolute return URL
+    return_url = str(request.base_url)
+    
+    # Construct Auth0 logout URL with absolute return URL
+    logout_url = (
+        f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
+        f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
+        f"returnTo={return_url}"
     )
+    
+    # Perform the redirect with explicit status code
+    return RedirectResponse(url=logout_url, status_code=303)
 
 ################
 # API Routes   #
