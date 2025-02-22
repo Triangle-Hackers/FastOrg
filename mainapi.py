@@ -132,3 +132,49 @@ async def protected_route(user: dict = Depends(require_auth)):
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
+
+# OpenAI MQL generation endpoint
+@app.post("/generate-mql")
+async def generate_mql(prompt: str, schema: Union[str, None] = None):
+    """
+    Generates MongoDB query (MQL) based on natural language prompt using OpenAI
+    Args:
+        prompt: Natural language description of the desired MongoDB query
+        schema: Optional collection schema information to guide query generation
+    """
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # Construct system message based on schema presence
+        system_message = "You are a MongoDB expert. Generate only MongoDB query language (MQL) code without explanation."
+        if schema:
+            system_message += f"\nUse the following collection schema:\n{schema}"
+        
+        # Create the completion request
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Generate MongoDB query for: {prompt}"}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        # Extract the MQL from response
+        mql = response.choices[0].message.content.strip()
+        
+        return {
+            "mql": mql,
+            "prompt": prompt,
+            "schema": schema
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "message": "Failed to generate MongoDB query"
+            }
+        )
