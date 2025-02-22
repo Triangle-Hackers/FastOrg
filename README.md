@@ -17,7 +17,7 @@ python -m pip install --upgrade pip
 ```
 
 ```bash
-echo "*" > .venv/.gitignore
+echo * > .venv/.gitignore
 ```
 
 ```bash
