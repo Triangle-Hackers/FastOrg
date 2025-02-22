@@ -1,6 +1,8 @@
 from typing import Union
-from fastapi import FastAPI, Depends, Request, HTTPException
+from fastapi import FastAPI, Depends, Request, HTTPException, Security
 from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
+from fastapi.security import OAuth2
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 import os
@@ -10,13 +12,57 @@ from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from protectedroutes import sub_router  # Add this import
 
 # Load environment variables
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
-app = FastAPI()
+# Add OAuth2 scheme for Swagger UI
+class OAuth2AuthorizationCodeBearer(OAuth2):
+    def __init__(
+        self,
+        authorizationUrl: str,
+        tokenUrl: str,
+        refreshUrl: str = None,
+        scheme_name: str = None,
+        scopes: dict = None,
+    ):
+        flows = OAuthFlowsModel(
+            authorizationCode={
+                "authorizationUrl": authorizationUrl,
+                "tokenUrl": tokenUrl,
+                "refreshUrl": refreshUrl,
+                "scopes": scopes or {},
+            }
+        )
+        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
+
+# Configure OAuth2 scheme
+auth0_scheme = OAuth2AuthorizationCodeBearer(
+    authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
+    tokenUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+    scopes={
+        "openid": "OpenID Connect",
+        "profile": "Profile",
+        "email": "Email"
+    }
+)
+
+# Update FastAPI app configuration
+app = FastAPI(
+    title="OrgCRM",
+    description="API with Auth0 authentication",
+    version="1.0.0",
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    swagger_ui_init_oauth={
+        "clientId": os.getenv("AUTH0_CLIENT_ID"),
+        "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
+        "scopes": ["openid", "profile", "email"],
+        "usePkceWithAuthorizationCodeGrant": True,
+    }
+)
 
 # Configure session middleware
 app.add_middleware(
@@ -36,6 +82,9 @@ oauth.register(
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
+
+
+async def require_auth(request: Request, token: str = Security(auth0_scheme)):
 
 #########################
 # Authentication System #
@@ -132,25 +181,31 @@ async def logout(request: Request):
     This endpoint ensures complete logout from both the application and Auth0.
     
     Flow:
-    1. Clear local session data
-    2. Redirect to Auth0's logout endpoint
-    3. Auth0 clears its session
-    4. User is logged out from both systems
+    1. Clear local session
+    2. Construct absolute return URL
+    3. Redirect to Auth0 logout with proper parameters
     
     Args:
         request: FastAPI Request object containing session to clear
     
     Returns:
         RedirectResponse: Redirects to Auth0's logout endpoint
-    
-    Note:
-        The Auth0 logout endpoint handles the final redirect back to the application
     """
+    # Clear the local session first
     request.session.clear()
-    return RedirectResponse(
-        url=f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
-        f"client_id={os.getenv('AUTH0_CLIENT_ID')}"
+    
+    # Construct absolute return URL
+    return_url = str(request.base_url)
+    
+    # Construct Auth0 logout URL with absolute return URL
+    logout_url = (
+        f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
+        f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
+        f"returnTo={return_url}"
     )
+    
+    # Perform the redirect with explicit status code
+    return RedirectResponse(url=logout_url, status_code=303)
 
 ################
 # API Routes   #
@@ -171,6 +226,9 @@ async def home(request: Request):
     user = request.session.get("user")
     return {"message": "Welcome!", "user": user} if user else {"message": "Please log in"}
 
+
+# Protected route example that requires authentication
+# Uses the require_auth dependency to ensure only authenticated users can access
 @app.get("/protected")
 async def protected_route(user: dict = Depends(require_auth)):
     """
@@ -192,7 +250,17 @@ async def protected_route(user: dict = Depends(require_auth)):
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
-  
+
+
+# Include the subroutes under the /protected prefix
+app.include_router(
+    sub_router,
+    prefix="/protected",
+    dependencies=[Depends(require_auth)]
+)
+
+
+
 # OpenAI MQL generation endpoint
 @app.post("/generate-mql")
 async def generate_mql(prompt: str, schema: Union[str, None] = None):
