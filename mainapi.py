@@ -37,11 +37,29 @@ oauth.register(
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
 
+#########################
+# Authentication System #
+#########################
+
 # Auth dependency for protected routes
 async def require_auth(request: Request):
     """
-    Dependency that checks if user is authenticated.
-    Raises HTTPException if user is not logged in.
+    Authentication dependency that protects routes from unauthorized access.
+    Used as a FastAPI dependency to enforce authentication on protected endpoints.
+    
+    Args:
+        request: FastAPI Request object containing session data
+    
+    Returns:
+        dict: User object from session if authenticated
+    
+    Raises:
+        HTTPException: 401 error if user is not authenticated
+    
+    Usage:
+        @app.get("/protected")
+        async def protected_route(user: dict = Depends(require_auth)):
+            return {"user": user}
     """
     user = request.session.get("user")
     if not user:
@@ -52,23 +70,51 @@ async def require_auth(request: Request):
 # Authentication Flow #
 #######################
 
-# Initiates the login process by redirecting to Auth0's Universal Login Page
-# This is the entry point for user authentication
-# Flow: User clicks login -> Redirected to Auth0 -> User authenticates -> Redirected back to /auth
+# Authentication Flow Routes
 @app.get("/login")
 async def login(request: Request):
-    """Initiates Auth0 authentication flow"""
+    """
+    Initiates the OAuth2 authentication flow with Auth0.
+    This endpoint starts the login process by redirecting to Auth0's Universal Login Page.
+    
+    Flow:
+    1. User accesses /login endpoint
+    2. Generate callback URL for Auth0 to return to
+    3. Redirect user to Auth0's login page with proper OAuth2 parameters
+    4. Auth0 handles user authentication
+    5. User is redirected back to /auth endpoint after successful login
+    
+    Args:
+        request: FastAPI Request object
+    
+    Returns:
+        RedirectResponse: Redirects to Auth0's login page
+    """
     redirect_uri = request.url_for("auth")
     return await oauth.auth0.authorize_redirect(request, redirect_uri)
 
-# Handles the callback from Auth0 after successful authentication
-# This endpoint receives the authentication result and creates a user session
-# Flow: Auth0 redirects here -> Verify token -> Create session -> Redirect to home
 @app.get("/auth")
 async def auth(request: Request):
     """
-    Callback endpoint for Auth0 authentication.
-    Stores user info in session upon successful login.
+    OAuth2 callback endpoint that handles the response from Auth0 after successful authentication.
+    This endpoint completes the authentication flow and establishes the user session.
+    
+    Flow:
+    1. Auth0 redirects user back to this endpoint with auth code
+    2. Exchange auth code for access token
+    3. Use access token to get user information
+    4. Create user session
+    5. Redirect to homepage
+    
+    Args:
+        request: FastAPI Request object containing Auth0 callback data
+    
+    Returns:
+        RedirectResponse: Redirects to homepage on success or login page on failure
+    
+    Error Handling:
+        - Logs authentication errors
+        - Redirects to login page if authentication fails
     """
     try:
         token = await oauth.auth0.authorize_access_token(request)
@@ -76,63 +122,77 @@ async def auth(request: Request):
         request.session["user"] = userinfo
         return RedirectResponse(url="/")
     except Exception as e:
-        print(f"Auth error: {str(e)}")  # Add logging for debugging
+        print(f"Auth error: {str(e)}")  # Log any authentication errors
         return RedirectResponse(url="/login")
 
-# Handles user logout by clearing the session and redirecting to Auth0's logout endpoint
-# This ensures both local and Auth0 sessions are terminated
-# Flow: User clicks logout -> Clear local session -> Redirect to Auth0 logout -> Return to home
 @app.get("/logout")
 async def logout(request: Request):
     """
-    Clears session and redirects to Auth0 logout endpoint
+    Handles user logout by clearing both local and Auth0 sessions.
+    This endpoint ensures complete logout from both the application and Auth0.
+    
+    Flow:
+    1. Clear local session data
+    2. Redirect to Auth0's logout endpoint
+    3. Auth0 clears its session
+    4. User is logged out from both systems
+    
+    Args:
+        request: FastAPI Request object containing session to clear
+    
+    Returns:
+        RedirectResponse: Redirects to Auth0's logout endpoint
+    
+    Note:
+        The Auth0 logout endpoint handles the final redirect back to the application
     """
-    try:
-        request.session.clear()
-        # Ensure we're using the correct Auth0 domain and parameters
-        logout_url = (
-            f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
-            f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
-            f"returnTo=http://localhost:8000"
-        )
-        print(f"Redirecting to: {logout_url}")  # Debug log
-        return RedirectResponse(
-            url=logout_url,
-            status_code=302
-        )
-    except Exception as e:
-        print(f"Logout error: {str(e)}")  # Debug log
-        # Fallback to home page if something goes wrong
-        return RedirectResponse(url="/", status_code=302)
+    request.session.clear()
+    return RedirectResponse(
+        url=f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
+        f"client_id={os.getenv('AUTH0_CLIENT_ID')}"
+    )
 
 ################
 # API Routes   #
 ################
 
-# Public homepage that displays different content based on authentication status
-# Demonstrates conditional rendering without requiring authentication
 @app.get("/")
 async def home(request: Request):
     """
-    Public route that shows different content for authenticated/unauthenticated users
+    Public homepage endpoint that handles both authenticated and unauthenticated users.
+    Demonstrates conditional response based on authentication status.
+    
+    Args:
+        request: FastAPI Request object containing session data
+    
+    Returns:
+        dict: Response containing welcome message and user data if authenticated
     """
     user = request.session.get("user")
     return {"message": "Welcome!", "user": user} if user else {"message": "Please log in"}
 
-# Protected route example that requires authentication
-# Uses the require_auth dependency to ensure only authenticated users can access
-# Also extracts and returns the authentication provider information
 @app.get("/protected")
 async def protected_route(user: dict = Depends(require_auth)):
     """
-    Protected route that requires authentication
+    Protected route that requires authentication to access.
+    Demonstrates use of the require_auth dependency for route protection.
+    
+    Args:
+        user: Dict containing user information, injected by require_auth dependency
+    
+    Returns:
+        dict: Protected content including user info and authentication provider
+    
+    Note:
+        The login_provider is extracted from the Auth0 'sub' claim which follows
+        the format 'provider|user_id'
     """
     return {
         "message": "This is a protected route",
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
-
+  
 # OpenAI MQL generation endpoint
 @app.post("/generate-mql")
 async def generate_mql(prompt: str, schema: Union[str, None] = None):
@@ -163,7 +223,7 @@ async def generate_mql(prompt: str, schema: Union[str, None] = None):
         
         # Extract the MQL from response
         mql = response.choices[0].message.content.strip()
-        
+
         return {
             "mql": mql,
             "prompt": prompt,
