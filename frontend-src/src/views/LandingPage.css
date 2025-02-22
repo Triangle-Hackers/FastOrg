@@ -29,7 +29,7 @@ body {
     padding: 1rem;
     flex-direction: column;
     min-height: 100vh;
-    background: linear-gradient(50deg, #18dfa3, #6226d1);
+    background: linear-gradient(135deg, #000d0d, #001515, #001a1a);  /* Darker teal gradient */
     background-size: 200% 200%;
     animation: gradientAnimation 10s ease infinite;
 }
@@ -38,12 +38,14 @@ body {
     opacity: 0;
     animation: fadeInUp 1s ease forwards;
     font-size: 4rem;
+    color: #ffffff;
 }
 
 .landing-container p {
     opacity: 0;
     animation: fadeInUp 1s ease forwards;
     font-size: 2rem;
+    color: #cccccc;
 }
 
 .landing-container .buttons {
@@ -57,16 +59,19 @@ body {
     opacity: 0;
     padding: 1rem 3.5rem;
     font-size: 2rem;
-    background-color: transparent;
-    border: 2px solid #000000;
-    color: #000000;
+    background-color: #6a1b9a;
+    border: none;
+    color: #ffffff;
     border-radius: 8px;
     cursor: pointer;
     animation: fadeInUp 1s ease forwards;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(106, 27, 154, 0.2);
 }
 
 .landing-container .buttons button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: #8e24aa;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(106, 27, 154, 0.3);
 }
 

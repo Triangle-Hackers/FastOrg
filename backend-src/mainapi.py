@@ -13,8 +13,14 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from protectedroutes import sub_router  # Add this import
-from fastapi.middleware.cors import CORSMiddleware
+
 import logging
+from fastapi.middleware.cors import CORSMiddleware
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -63,13 +69,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=True,  # Important for cookies/session
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Configure session middleware
@@ -166,20 +173,9 @@ async def auth(request: Request):
         
         # Get user info directly instead of parsing id_token
         userinfo = await oauth.auth0.userinfo(token=token)
-        logger.info(f"Received userinfo: {userinfo}")
-        
-        if not userinfo:
-            logger.error("No userinfo received")
-            raise HTTPException(status_code=400, detail="Failed to get user info")
-        
-        request.session["user"] = {
-            "sub": userinfo.get("sub", ""),
-            "email": userinfo.get("email", ""),
-            "name": userinfo.get("name", "")
-        }
-        logger.info("User session created")
-        
-        return RedirectResponse(url="http://localhost:5173/home", status_code=302)
+
+        request.session["user"] = userinfo
+        return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
         logger.error(f"Auth callback error: {str(e)}")
         return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
@@ -300,3 +296,25 @@ async def generate_mql(prompt: str, schema: Union[str, None] = None):
                 "message": "Failed to generate MongoDB query"
             }
         )
+
+@app.get("/verify-session")
+async def verify_session(request: Request):
+    """
+    Verifies that the user's session is valid.
+    """
+    try:
+        logger.info("Verifying session")
+        logger.info(f"Session contents: {request.session}")
+        
+        if "user" not in request.session:
+            logger.error("No user in session")
+            raise HTTPException(status_code=401, detail="Not authenticated")
+            
+        # Return user info if session is valid
+        return {
+            "status": "valid",
+            "user": request.session["user"]
+        }
+    except Exception as e:
+        logger.error(f"Session verification error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Session verification failed")
