@@ -23,7 +23,7 @@ os.makedirs("organizations", exist_ok=True)
 for organization in organization_data:
     organization_name = organization["Organization Name"]
     sheet_url = organization["Sheet URL"]
-    output_csv = organization["Output CSV"]
+    output_csv = f"{organization_name}.csv"
 
     # Individually open each organization's google sheets link
     sheet = client.open_by_url(sheet_url).sheet1
