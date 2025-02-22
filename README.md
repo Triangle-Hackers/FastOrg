@@ -25,7 +25,7 @@ pip install -r requirements.txt
 ```
 
 ```bash
-fastapi dev mainapi.py
+fastapi dev backend-src/mainapi.py
 ```
 
 ```bash
