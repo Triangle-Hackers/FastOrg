@@ -16,10 +16,27 @@ def create_new_collection(db, name):
     else:
         print("Name taken/Organization already exists!")
 
-uri = os.getenv("MONGO_URI")
-client = MongoClient(uri, server_api=ServerApi('1'))
 
-db = client["memberdb"]
+def create_org_mongo(org_name):
+    if not org_name or not isinstance(org_name, str):
+        raise ValueError("Organization name must be a non-empty string")
 
-org_name = "test" #gotta receive from user input
-create_new_collection(db, org_name) 
+    uri = os.getenv("MONGO_URI")
+    if not uri:
+        raise ValueError("MongoDB URI not found in environment variables")
+
+    try:
+        client = MongoClient(uri, server_api=ServerApi('1'))
+        # Test the connection
+        client.admin.command('ping')
+        
+        db = client["memberdb"]
+        create_new_collection(db, org_name)
+        return True
+        
+    except Exception as e:
+        print(f"Error creating organization: {e}")
+        return False
+        
+    finally:
+        client.close() 
