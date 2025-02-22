@@ -1,8 +1,25 @@
 For development purposes:
-``python -m venv .venv``
-``source .venv/bin/activate``
-``which python``
-^ should output inside .venv
-``python -m pip install --upgrade pip``
-``echo "*" > .venv/.gitignore``
-``pip install -r requirements.txt``
+
+```bash
+python -m venv .venv
+```
+
+```bash
+source .venv/bin/activate
+```
+
+```bash
+which python  # should output inside .venv
+```
+
+```bash
+python -m pip install --upgrade pip
+```
+
+```bash
+echo "*" > .venv/.gitignore
+```
+
+```bash
+pip install -r requirements.txt
+```
