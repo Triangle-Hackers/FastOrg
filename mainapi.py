@@ -84,14 +84,14 @@ oauth.register(
 )
 
 
-async def require_auth(request: Request, token: str = Security(auth0_scheme)):
+
 
 #########################
 # Authentication System #
 #########################
 
 # Auth dependency for protected routes
-async def require_auth(request: Request):
+async def require_auth(request: Request, token: str = Security(auth0_scheme)):
     """
     Authentication dependency that protects routes from unauthorized access.
     Used as a FastAPI dependency to enforce authentication on protected endpoints.
