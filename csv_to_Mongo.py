@@ -4,11 +4,35 @@ import os
 from datetime import datetime
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+import json
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
+def load_schema(schema_path="schema.txt"):
+    """
+    Loads the schema mapping from schema.txt file.
+    Each line in schema.txt represents a field name that maps to CSV columns.
+    Args:
+        schema_path: Path to the schema definition file
+        
+    Returns:
+        list: List of field names to map from CSV to MongoDB
+        
+    Note:
+        The schema file should contain one field name per line,
+        matching the order of CSV columns
+    """
+    try:
+        with open(schema_path, 'r') as f:
+            # Remove empty lines and whitespace
+            schema = [line.strip() for line in f.readlines() if line.strip()]
+        return schema
+    except Exception as e:
+        print(f"Error loading schema: {str(e)}")
+        return None
+    
 def main():
     uri = os.getenv("MONGO_URI")
     
@@ -23,20 +47,15 @@ def main():
     
     with open(csv_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
+
+        schema = json.load(open("schema.json"))
         
         for row in reader:
             checkEmail = row["Email"]
             if not collection.find_one({"email": checkEmail}):
                 doc = { 
-                    "name": row["Enter your name"],
-                    "class": row["Year/Class"],
-                    "address": row["Home address"],
-                    "gpa": row["GPA"],
-                    "major": row["Major"],
-                    "grad": row["Expected Graduating Date"],
-                    "phone": row["Phone Number"],
-                    "email": row["Email Address"],
-                    "shirt": row["T-Shirt Size"]
+                    mongo_field: row[csv_field] 
+                    for mongo_field, csv_field in schema.items()
                 }
             
                 documents.append(doc)
