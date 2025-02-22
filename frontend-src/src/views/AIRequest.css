@@ -8,7 +8,6 @@ html, body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    font-family: Arial, sans-serif;
 }
 
 .header {
@@ -44,6 +43,7 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: linear-gradient(135deg, rgba(236,102,113,0.3), rgba(18,187,136,0.3));
 }
 
 .responses {
@@ -56,4 +56,30 @@ html, body {
     border-top: 1px solid #ddd;
     padding: 1rem;
     background: #fff;
+    background-color: transparent;
+}
+
+.chat-box textarea {
+    resize: none;
+    font-size: 1rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin-bottom: 0.5rem;
+}
+
+.chat-box button {
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+    background: linear-gradient(45deg, #12bb88, #ec6671);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chat-box button:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
