@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import OperationsController from '../controllers/OperationsController';
 import './Home.css';
 
 const Home = () => {
@@ -31,11 +32,7 @@ const Home = () => {
                 <main className="content">
                     <section className="operations-section">
                         <h2>Operations</h2>
-                        <div className="buttons">
-                            <button>Operation 1</button>
-                            <button>Operation 2</button>
-                            <button>Operation 3</button>
-                        </div>
+                        <OperationsController />
                     </section>
                     <section className="info-section">
                         <h2>Information</h2>
