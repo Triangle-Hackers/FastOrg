@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './views/Home';
 import AIRequest from './views/AIRequest';
 import LandingPage from './views/LandingPage';
 import NotFound from './views/NotFound';
+import AIController from './controllers/AIControl';
+import HomeController from './controllers/HomeControl';
+import SettingsController from './controllers/SettingsControl';
+import FirstTimeSetupController from './controllers/FirstTimeSetupControl';
+
 
 const App = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);
@@ -39,9 +44,11 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={isSessionValid ? <Home /> : <LandingPage />} />
-        <Route path="/home" element={isSessionValid ? <Home /> : <LandingPage />} />
-        <Route path="/ai-request" element={isSessionValid ? <AIRequest /> : <LandingPage />} />
+        <Route path="/" element={isSessionValid ? <Navigate to="/home" replace /> : <LandingPage />} />
+        <Route path="/home" element={isSessionValid ? <HomeController /> : <LandingPage />} />
+        <Route path="/ai-request" element={isSessionValid ? <AIController /> : <LandingPage />} />
+        <Route path="/settings" element={isSessionValid ? <SettingsController /> : <LandingPage />} />
+        <Route path="/setup" element={isSessionValid ? <FirstTimeSetupController /> : <LandingPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

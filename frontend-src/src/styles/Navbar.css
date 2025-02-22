@@ -1,0 +1,34 @@
+.navbar {
+    background-color: #333;
+    padding: 1rem;
+}
+
+.navbar-container {
+    display: flex;
+    justify-content: space-between; /* Distribute space evenly */
+    align-items: center; /* Center items vertically */
+    list-style: none; /* Remove default list styling */
+    margin: 0;
+    padding: 0;
+}
+
+/* Target NavLink components directly */
+.navbar-container li a,
+.navbar-container li a:link,
+.navbar-container li a:visited {
+    color: #ffffff !important;  /* Force white color */
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    transition: background-color 0.3s;
+}
+
+.navbar-container li a:hover {
+    background-color: #555;
+    color: #ffffff !important;  /* Keep text white on hover */
+}
+
+/* Style for active link */
+.navbar-container li a.active {
+    font-weight: bold;
+    color: #ffffff !important;  /* Keep text white when active */
+} 

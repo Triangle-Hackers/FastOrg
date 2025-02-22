@@ -1,30 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import './AIRequest.css';
+import '../styles/AIRequest.css';
+import Navbar from '../components/Navbar';
 
 const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loading }) => {
     return (
         <div className="ai-container">
-            {/* Header */}
-            <header className="header">
-                <div className="org-name">User org</div>
-                <div className="software-name">Software name</div>
-            </header>
             
             {/* Navbar */}
-            <nav className="navbar">
-                <ul>
-                    <li>
-                        <NavLink to="/" end activeClassName="active">
-                            Dashboard
-                        </NavLink>
-                    </li>
-                    <li><NavLink to="/AIRequest" end activeClassName="active">
-                            DeepConsole
-                        </NavLink>
-                    </li>
-                </ul>
-            </nav>
+            <Navbar />
 
             {/* AI Request Panel */}
             <div className="ai-panel">

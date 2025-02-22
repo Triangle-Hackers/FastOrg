@@ -11,12 +11,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       authorizationParams={{
         redirect_uri: window.location.origin,
         audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-        scope: "openid profile email"
+        scope: "openid profile email offline_access update:current_user_metadata"
       }}
-      cacheLocation="localstorage"
-      useRefreshTokens={true}
     >
       <App />
     </Auth0Provider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
