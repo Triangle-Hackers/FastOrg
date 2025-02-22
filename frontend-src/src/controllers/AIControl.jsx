@@ -3,6 +3,7 @@ import axios from 'axios';
 import AIRequest from '../views/AIRequest';
 
 const AIController = () => {
+    /* Set states for api ai input vars */
     const [request, setRequest] = useState('');
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
@@ -14,6 +15,7 @@ const AIController = () => {
         setError(null);
 
         try {
+            /* Grabs response from api */
             const response = await axios.post('API ENDPOINT HERE', { request });
             setResult(response.data);
         } catch (err) {

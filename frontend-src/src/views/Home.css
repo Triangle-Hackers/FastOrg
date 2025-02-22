@@ -7,7 +7,6 @@ html, body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    font-family: Arial, sans-serif;
 }
 
 .header {
@@ -44,6 +43,7 @@ html, body {
     align-items: center;
     justify-content: center;
     padding: 1rem;
+    background: linear-gradient(135deg, rgba(18,187,136,0.3), rgba(236,102,113,0.3));
 }
 
 .content {
@@ -71,12 +71,42 @@ html, body {
     background-color: #007bff;
     color: #fff;
     border-radius: 4px;
+    overflow: hidden;
     cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.operations-section button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.operations-section button::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 100%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: width 0.5s ease, height 0.5s ease, opacity 0.5s ease;
+}
+
+.operations-section button:active::after {
+    width: 200%;
+    height: 200%;
+    opacity: 1;
+    transition: 0s;
 }
 
 .info-section {
     flex: 2;
+    background: #fff;
     border: 1px solid #ddd;
-    padding: 1rem;
-    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
 }

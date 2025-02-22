@@ -16,7 +16,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={isAuthenticated ? <LandingPage /> : <Home />} />
+        <Route path="/" element={isAuthenticated ? <Home /> : <LandingPage />} />
         <Route path="/AIRequest" element={<AIRequest />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
