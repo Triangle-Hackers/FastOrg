@@ -1,0 +1,11 @@
+{
+    "name": "Enter your name",
+    "class": "Year/Class",
+    "address": "Home address",
+    "gpa": "GPA",
+    "major": "Major",
+    "grad": "Expected Graduating Date",
+    "phone": "Phone Number",
+    "email": "Email Address",
+    "shirt": "T-Shirt Size"
+}
