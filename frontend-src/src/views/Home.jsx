@@ -1,30 +1,19 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import './Home.css';
+import '../styles/Home.css';
+import Navbar from '../components/Navbar';
 
-const Home = () => {
+const Home = ({ 
+    userData, 
+    loading, 
+    error, 
+}) => {
+    if (loading) return <div>Loading...</div>;
+    if (error) return <div>Error: {error}</div>;
     return (
         <div className="home-container">
-            {/* Header */}
-            <header className="header">
-                <div className="org-name">User org</div>
-                <div className="software-name">Software name</div>
-            </header>
-
             {/* Navbar */}
-            <nav className="navbar">
-                <ul>
-                    <li>
-                        <NavLink to="/" end activeClassName="active">
-                            Dashboard
-                        </NavLink>
-                    </li>
-                    <li><NavLink to="/ai-request" end activeClassName="active">
-                            DeepConsole
-                        </NavLink>
-                    </li>
-                </ul>
-            </nav>
+            <Navbar />
 
             {/* Main Content */}
             <div className="main-content-wrapper">

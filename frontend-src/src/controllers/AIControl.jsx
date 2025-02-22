@@ -25,7 +25,7 @@ const AIController = () => {
             setRequest('');
         }
     };
-
+    console.log("AIController rendered");
     return (
         <AIRequest
             request={request}
