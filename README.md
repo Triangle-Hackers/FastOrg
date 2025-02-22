@@ -17,9 +17,13 @@ python -m pip install --upgrade pip
 ```
 
 ```bash
-echo "*" > .venv/.gitignore
+echo * > .venv/.gitignore
 ```
 
 ```bash
 pip install -r requirements.txt
+```
+
+```bash
+fastapi dev mainapi.py
 ```
