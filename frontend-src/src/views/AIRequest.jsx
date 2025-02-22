@@ -20,7 +20,7 @@ const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loadin
                         </NavLink>
                     </li>
                     <li><NavLink to="/AIRequest" end activeClassName="active">
-                            AIRequest
+                            DeepConsole
                         </NavLink>
                     </li>
                 </ul>
