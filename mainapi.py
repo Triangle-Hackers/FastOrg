@@ -7,6 +7,9 @@ import os
 from dotenv import find_dotenv, load_dotenv
 from functools import wraps
 from openai import OpenAI
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -28,7 +31,8 @@ oauth.register(
     client_id=os.getenv("AUTH0_CLIENT_ID"),
     client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
     client_kwargs={
-        "scope": "openid profile email"
+        "scope": "openid profile email",
+        "response_type": "code",
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
@@ -68,10 +72,11 @@ async def auth(request: Request):
     """
     try:
         token = await oauth.auth0.authorize_access_token(request)
-        userinfo = await oauth.auth0.parse_id_token(request, token)
+        userinfo = await oauth.auth0.userinfo(token=token)
         request.session["user"] = userinfo
         return RedirectResponse(url="/")
     except Exception as e:
+        print(f"Auth error: {str(e)}")  # Add logging for debugging
         return RedirectResponse(url="/login")
 
 # Handles user logout by clearing the session and redirecting to Auth0's logout endpoint
@@ -82,12 +87,23 @@ async def logout(request: Request):
     """
     Clears session and redirects to Auth0 logout endpoint
     """
-    request.session.clear()
-    return RedirectResponse(
-        url=f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
-        f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
-        f"returnTo={request.base_url}home"
-    )
+    try:
+        request.session.clear()
+        # Ensure we're using the correct Auth0 domain and parameters
+        logout_url = (
+            f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
+            f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
+            f"returnTo=http://localhost:8000"
+        )
+        print(f"Redirecting to: {logout_url}")  # Debug log
+        return RedirectResponse(
+            url=logout_url,
+            status_code=302
+        )
+    except Exception as e:
+        print(f"Logout error: {str(e)}")  # Debug log
+        # Fallback to home page if something goes wrong
+        return RedirectResponse(url="/", status_code=302)
 
 ################
 # API Routes   #
@@ -101,9 +117,7 @@ async def home(request: Request):
     Public route that shows different content for authenticated/unauthenticated users
     """
     user = request.session.get("user")
-    if user:
-        return {"message": "Welcome!", "user": user}
-    return {"message": "Please log in"}
+    return {"message": "Welcome!", "user": user} if user else {"message": "Please log in"}
 
 # Protected route example that requires authentication
 # Uses the require_auth dependency to ensure only authenticated users can access
