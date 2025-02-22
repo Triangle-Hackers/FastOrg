@@ -21,7 +21,7 @@ def main():
         for row in reader:
             checkEmail = row["Email"]
             if not collection.find_one({"email": checkEmail}):
-                doc = {
+                doc = { 
                     "name": row["Enter your name"],
                     "class": row["Year/Class"],
                     "address": row["Home address"],
