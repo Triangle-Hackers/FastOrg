@@ -9,6 +9,7 @@ import HomeController from './controllers/HomeControl';
 import SettingsController from './controllers/SettingsControl';
 import FirstTimeSetupController from './controllers/FirstTimeSetupControl';
 
+
 const App = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
