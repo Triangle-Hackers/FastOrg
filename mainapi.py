@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import os
 from dotenv import find_dotenv, load_dotenv
 from functools import wraps
+from openai import OpenAI
 
 # Load environment variables
 ENV_FILE = find_dotenv()

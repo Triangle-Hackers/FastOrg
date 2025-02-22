@@ -8,3 +8,4 @@ pymongo[srv]
 gspread
 pandas
 oauth2client
+openai
