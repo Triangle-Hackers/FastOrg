@@ -13,11 +13,17 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from protectedroutes import sub_router  # Add this import
+from fastapi.middleware.cors import CORSMiddleware
+import logging
 
 # Load environment variables
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add OAuth2 scheme for Swagger UI
 class OAuth2AuthorizationCodeBearer(OAuth2):
@@ -50,18 +56,20 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
     }
 )
 
-# Update FastAPI app configuration
+# Update FastAPI app configuration with proper CORS settings
 app = FastAPI(
-    title="OrgCRM",
-    description="API with Auth0 authentication",
+    title="OrgCRM API",
+    description="API with Auth0 authentication for organization management",
     version="1.0.0",
-    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
-    swagger_ui_init_oauth={
-        "clientId": os.getenv("AUTH0_CLIENT_ID"),
-        "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
-        "scopes": ["openid", "profile", "email"],
-        "usePkceWithAuthorizationCodeGrant": True,
-    }
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Configure session middleware
@@ -70,7 +78,7 @@ app.add_middleware(
     secret_key=os.getenv("APP_SECRET_KEY")
 )
 
-# Setup OAuth for login flow
+# Configure OAuth for login flow
 oauth = OAuth()
 oauth.register(
     "auth0",
@@ -82,9 +90,6 @@ oauth.register(
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
-
-
-
 
 #########################
 # Authentication System #
@@ -126,85 +131,74 @@ async def login(request: Request):
     Initiates the OAuth2 authentication flow with Auth0.
     This endpoint starts the login process by redirecting to Auth0's Universal Login Page.
     
-    Flow:
-    1. User accesses /login endpoint
-    2. Generate callback URL for Auth0 to return to
-    3. Redirect user to Auth0's login page with proper OAuth2 parameters
-    4. Auth0 handles user authentication
-    5. User is redirected back to /auth endpoint after successful login
-    
     Args:
         request: FastAPI Request object
     
     Returns:
-        RedirectResponse: Redirects to Auth0's login page
+        RedirectResponse: Redirects to Auth0 login
+        
+    Raises:
+        HTTPException: If authentication initialization fails
     """
-    redirect_uri = request.url_for("auth")
-    return await oauth.auth0.authorize_redirect(request, redirect_uri)
+    try:
+        redirect_uri = "http://localhost:8000/auth"
+        logger.info(f"Login attempt with redirect URI: {redirect_uri}")
+        
+        return await oauth.auth0.authorize_redirect(
+            request,
+            redirect_uri,
+            response_type="code",
+            scope="openid profile email"
+        )
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return RedirectResponse(url="http://localhost:5173?error=login_failed", status_code=302)
 
 @app.get("/auth")
 async def auth(request: Request):
     """
-    OAuth2 callback endpoint that handles the response from Auth0 after successful authentication.
+    OAuth2 callback endpoint that handles the response from Auth0.
     This endpoint completes the authentication flow and establishes the user session.
-    
-    Flow:
-    1. Auth0 redirects user back to this endpoint with auth code
-    2. Exchange auth code for access token
-    3. Use access token to get user information
-    4. Create user session
-    5. Redirect to homepage
-    
-    Args:
-        request: FastAPI Request object containing Auth0 callback data
-    
-    Returns:
-        RedirectResponse: Redirects to homepage on success or login page on failure
-    
-    Error Handling:
-        - Logs authentication errors
-        - Redirects to login page if authentication fails
     """
     try:
+        logger.info("Starting auth callback processing")
         token = await oauth.auth0.authorize_access_token(request)
+        
+        # Get user info directly instead of parsing id_token
         userinfo = await oauth.auth0.userinfo(token=token)
-        request.session["user"] = userinfo
-        return RedirectResponse(url="/")
+        logger.info(f"Received userinfo: {userinfo}")
+        
+        if not userinfo:
+            logger.error("No userinfo received")
+            raise HTTPException(status_code=400, detail="Failed to get user info")
+        
+        request.session["user"] = {
+            "sub": userinfo.get("sub", ""),
+            "email": userinfo.get("email", ""),
+            "name": userinfo.get("name", "")
+        }
+        logger.info("User session created")
+        
+        return RedirectResponse(url="http://localhost:5173/home", status_code=302)
     except Exception as e:
-        print(f"Auth error: {str(e)}")  # Log any authentication errors
-        return RedirectResponse(url="/login")
+        logger.error(f"Auth callback error: {str(e)}")
+        return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
 
 @app.get("/logout")
 async def logout(request: Request):
     """
     Handles user logout by clearing both local and Auth0 sessions.
-    This endpoint ensures complete logout from both the application and Auth0.
-    
-    Flow:
-    1. Clear local session
-    2. Construct absolute return URL
-    3. Redirect to Auth0 logout with proper parameters
-    
-    Args:
-        request: FastAPI Request object containing session to clear
-    
-    Returns:
-        RedirectResponse: Redirects to Auth0's logout endpoint
     """
-    # Clear the local session first
     request.session.clear()
     
-    # Construct absolute return URL
-    return_url = str(request.base_url)
-    
-    # Construct Auth0 logout URL with absolute return URL
+    # Redirect to Auth0 logout with frontend return URL
+    return_url = "http://localhost:5173"
     logout_url = (
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
         f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
         f"returnTo={return_url}"
     )
     
-    # Perform the redirect with explicit status code
     return RedirectResponse(url=logout_url, status_code=303)
 
 ################
