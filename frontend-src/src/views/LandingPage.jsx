@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+import './LandingPage.css';
 
 const LandingPage = () => {
     const handleLogin = () => {
@@ -8,9 +8,12 @@ const LandingPage = () => {
 
     return (
         <div className="landing-container">
-            <h1>Welcome to our CRM!</h1>
+            <h1>Welcome to our CRM</h1>
             <p>You should use this software trust</p>
-            <button onClick={handleLogin}>Log In</button>
+            <div className="buttons">
+                <button onClick={handleLogin}>Log In</button>
+                <button onClick={handleLogin}>Sign Up</button>
+            </div>
         </div>
     );
 };

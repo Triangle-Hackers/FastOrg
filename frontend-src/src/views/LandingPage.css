@@ -1,0 +1,72 @@
+@keyframes gradientAnimation {
+    0% { background-position: 40% 60%; }
+    50% { background-position: 90% 30%; }
+    100% { background-position: 40% 60%; }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(50deg, #18dfa3, #6226d1);
+    background-size: 200% 200%;
+    animation: gradientAnimation 10s ease infinite;
+    font-family: 'Roboto', sans-serif;
+}
+
+.landing-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    flex-direction: column;
+    min-height: 60vh;
+}
+
+.landing-container h1 {
+    opacity: 0;
+    animation: fadeInUp 1s ease forwards;
+    font-size: 4rem;
+}
+
+.landing-container p {
+    opacity: 0;
+    animation: fadeInUp 1s ease forwards;
+    font-size: 2rem;
+}
+
+.landing-container .buttons {
+    display: flex;
+    flex-direction: row;
+    padding: 3rem;
+    gap: 2rem;
+}
+
+.landing-container .buttons button {
+    opacity: 0;
+    padding: 1rem 3.5rem;
+    font-size: 2rem;
+    background-color: transparent;
+    border: 2px solid #000000;
+    color: #000000;
+    border-radius: 8px;
+    cursor: pointer;
+    animation: fadeInUp 1s ease forwards;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.landing-container .buttons button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
