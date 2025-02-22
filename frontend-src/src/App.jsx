@@ -4,6 +4,7 @@ import Home from './views/Home';
 import AIRequest from './views/AIRequest';
 import LandingPage from './views/LandingPage';
 import NotFound from './views/NotFound';
+import AIController from './controllers/AIControl';
 
 const App = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);

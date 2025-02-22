@@ -19,8 +19,8 @@ const Home = () => {
                             Dashboard
                         </NavLink>
                     </li>
-                    <li><NavLink to="/AIRequest" end activeClassName="active">
-                            AIRequest
+                    <li><NavLink to="/ai-request" end activeClassName="active">
+                            DeepConsole
                         </NavLink>
                     </li>
                 </ul>
