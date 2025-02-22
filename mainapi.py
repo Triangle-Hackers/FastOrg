@@ -192,43 +192,42 @@ async def protected_route(user: dict = Depends(require_auth)):
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
-
-@app.post("/generate-sql")
-async def generate_sql(prompt: str):
+  
+# OpenAI MQL generation endpoint
+@app.post("/generate-mql")
+async def generate_mql(prompt: str, schema: Union[str, None] = None):
     """
-    OpenAI-powered endpoint that generates SQL queries from natural language prompts.
-    Uses GPT-3.5-turbo to convert English descriptions into SQL queries.
-    
+    Generates MongoDB query (MQL) based on natural language prompt using OpenAI
     Args:
-        prompt: String containing natural language description of desired SQL query
-    
-    Returns:
-        dict: Contains generated SQL and original prompt on success
-        JSONResponse: Contains error details on failure
-    
-    Error Handling:
-        - Returns 500 status code with error details if generation fails
-        - Includes both error message and original error for debugging
+        prompt: Natural language description of the desired MongoDB query
+        schema: Optional collection schema information to guide query generation
     """
     try:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
-        # Configure and send request to OpenAI
+        # Construct system message based on schema presence
+        system_message = "You are a MongoDB expert. Generate only MongoDB query language (MQL) code without explanation."
+        if schema:
+            system_message += f"\nUse the following collection schema:\n{schema}"
+        
+        # Create the completion request
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a SQL expert. Generate only SQL code without explanation."},
-                {"role": "user", "content": f"Generate SQL query for: {prompt}"}
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Generate MongoDB query for: {prompt}"}
             ],
             temperature=0.7,
             max_tokens=500
         )
         
-        # Extract and return the generated SQL
-        sql = response.choices[0].message.content.strip()
+        # Extract the MQL from response
+        mql = response.choices[0].message.content.strip()
+
         return {
-            "sql": sql,
-            "prompt": prompt
+            "mql": mql,
+            "prompt": prompt,
+            "schema": schema
         }
         
     except Exception as e:
@@ -236,6 +235,6 @@ async def generate_sql(prompt: str):
             status_code=500,
             content={
                 "error": str(e),
-                "message": "Failed to generate SQL"
+                "message": "Failed to generate MongoDB query"
             }
         )

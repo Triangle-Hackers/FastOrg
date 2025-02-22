@@ -1,5 +1,11 @@
+from dotenv import find_dotenv, load_dotenv
+import os
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+
+ENV_FILE = find_dotenv()
+if ENV_FILE:
+    load_dotenv(ENV_FILE)
 
 def create_new_collection(db, name):
     collection_name = name.replace(" ", "_").lower()
@@ -10,7 +16,7 @@ def create_new_collection(db, name):
     else:
         print("Name taken/Organization already exists!")
 
-uri = "mongodb+srv://cadenedam:z2G3nyHF0Hfpn7UE@cluster0.e1ur4.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+uri = os.getenv("MONGO_URI")
 client = MongoClient(uri, server_api=ServerApi('1'))
 
 db = client["memberdb"]
