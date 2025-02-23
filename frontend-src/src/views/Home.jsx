@@ -1,8 +1,11 @@
+import React, { useEffect } from 'react';
 import React from 'react';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 import '../styles/Home.css';
 import Navbar from '../components/Navbar';
+import { getCompletedSetup } from '../components/global_setup_state';
+import { useNavigate } from 'react-router-dom';
 
 const Home = ({ 
     userData, 
@@ -14,6 +17,12 @@ const Home = ({
     setInfoMessage,
     handleViewRoster, 
 }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!getCompletedSetup()) {
+            navigate('/setup');
+        }
+    }, []);
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
     return (

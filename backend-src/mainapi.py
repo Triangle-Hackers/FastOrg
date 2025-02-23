@@ -120,12 +120,20 @@ oauth.register(
 #########################
 
 
-# Add these constants after the logging setup
 ALGORITHMS = ["RS256"]
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
-API_AUDIENCE = os.getenv('AUTH0_AUDIENCE')  # Add this to your .env file
+API_AUDIENCE = os.getenv('AUTH0_AUDIENCE')
 
-# Replace the require_auth function with this updated version
+def decode_jwt(token):
+    # Decode the JWT token
+    try:
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        return decoded
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 async def require_auth(request: Request, token: str = Security(auth0_scheme)):
     """
     Validates JWT token and checks if user is authenticated.
@@ -464,12 +472,12 @@ async def verify_session(request: Request):
     Verifies that the user's session is valid.
     """
     try:
-        if "user" not in request.session:
+        user = request.session.get("user")
+        if not user:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        user = request.session["user"]
         if "sub" not in user:
-            raise HTTPException(status_code=401, detail="Missing 'sub' in session")
+            raise HTTPException(status_code=401, detail=f"Missing 'sub' in session: {user}")
 
         return {
             "status": "valid",
@@ -508,7 +516,7 @@ async def fetch_full_profile(request: Request):
     except Exception as e:
         pass
     return user
-    
+
 
 
 @app.put("/update-nickname")
@@ -559,7 +567,7 @@ async def update_nickname(request: Request):
 @app.put("/complete-setup")
 async def complete_setup(request: Request):
     """
-    Marks user's setup as complete in Auth0, storing data in app_metadata if desired.
+    Marks user's setup as complete in Auth0, storing data in user_metadata if desired.
     """
     try:
         session_user = request.session.get("user")
@@ -569,22 +577,14 @@ async def complete_setup(request: Request):
         user_id = session_user["sub"]
         body = await request.json()
 
-        # e.g., store extra data in app_metadata
-        # We'll store "preferredName" and "favoriteColor"
-        app_metadata_updates = {
-            "completed_setup": True,
-            "preferredName": body.get("preferredName", ""),
-            "favoriteColor": body.get("favoriteColor", ""),
-        }
-
-        # Get Management API token
+        # Get existing user metadata first
         token_url = f'https://{os.getenv("AUTH0_DOMAIN")}/oauth/token'
         token_payload = {
             'client_id': os.getenv('AUTH0_CLIENT_ID'),
             'client_secret': os.getenv('AUTH0_CLIENT_SECRET'),
             'audience': f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/',
             'grant_type': 'client_credentials',
-            'scope': 'update:users_app_metadata'
+            'scope': 'update:users read:users'
         }
 
         token_response = requests.post(
@@ -598,27 +598,49 @@ async def complete_setup(request: Request):
 
         mgmt_token = token_response.json()['access_token']
 
-        # Patch user in Auth0
-        update_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
+        # Get current user metadata
+        get_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
+        user_response = requests.get(
+            get_url,
+            headers={
+                'Authorization': f'Bearer {mgmt_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+
+        if not user_response.ok:
+            raise HTTPException(status_code=400, detail="Failed to get current user metadata")
+
+        current_user = user_response.json()
+        current_metadata = current_user.get('user_metadata', {})
+
+        # Merge existing metadata with new updates
+        updated_metadata = {
+            **current_metadata,
+            "completed_setup": True,
+            # Add any other metadata fields here
+        }
+
+        # Patch user in Auth0 with merged metadata
         patch_response = requests.patch(
-            update_url,
+            get_url,
             headers={
                 'Authorization': f'Bearer {mgmt_token}',
                 'Content-Type': 'application/json'
             },
-            json={"app_metadata": app_metadata_updates}
+            json={
+                "user_metadata": updated_metadata
+            }
         )
         
         if not patch_response.ok:
             raise HTTPException(status_code=400, detail="Auth0 user update failed")
 
-        # Update session as well
-        # Re-fetch user profile or just patch session
-        if "app_metadata" not in request.session["user"]:
-            request.session["user"]["app_metadata"] = {}
-        request.session["user"]["app_metadata"].update(app_metadata_updates)
+        # Update session with new metadata
+        session_user['user_metadata'] = updated_metadata
+        request.session["user"] = session_user
 
-        return {"status": "success"}
+        return {"status": "success", "metadata": updated_metadata, "user": session_user}
 
     except HTTPException as e:
         raise e
