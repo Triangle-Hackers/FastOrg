@@ -14,7 +14,8 @@ const Home = ({
     setRoster,
     infoMessage,
     setInfoMessage,
-    handleViewRoster 
+    handleViewRoster,
+    inviteCode
 }) => {
     const navigate = useNavigate();
 
@@ -63,7 +64,7 @@ const Home = ({
             <div className="main-content-wrapper">
                 <div className="operations-info-container">
                     <section className="operations-section">
-
+                        Invite Code: {inviteCode}
                         <h2>Roster View</h2>
                         <div className="buttons">
                             <button onClick={handleViewRoster}>View Full Roster</button>
