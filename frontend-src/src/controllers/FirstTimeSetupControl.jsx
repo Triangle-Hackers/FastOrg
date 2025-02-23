@@ -64,8 +64,7 @@ const FirstTimeSetupController = () => {
       let res = await fetch(`http://localhost:8000/create-org/${setupData.org_name}`, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(setupData),
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!res.ok) {

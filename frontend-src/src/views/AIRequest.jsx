@@ -6,8 +6,8 @@ const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loadin
     const [nValue, setNValue] = useState(1);
     const [mValue, setMValue] = useState(1);
     const [tableHTML, setTableHTML] = useState('');
-    const [request, setRequest] = useState('');
-    const [loading, setLoading] = useState(false);
+    // const [request, setRequest] = useState('');
+    // const [loading, setLoading] = useState(false);
     
     const [mode] = useState(() => {
                 return localStorage.getItem('mode') || 'light';
