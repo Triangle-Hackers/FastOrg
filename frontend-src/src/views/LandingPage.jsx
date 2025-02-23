@@ -16,7 +16,7 @@ const LandingPage = () => {
 
     return (
         <div className="landing-container">
-            <h1>Welcome to OrgCRM</h1>
+            <h1>Welcome to FastOrg!</h1>
             <p>Streamline your organization management</p>
             <div className="buttons">
                 <button onClick={handleGetStarted}>Get Started</button>
