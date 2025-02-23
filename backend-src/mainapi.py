@@ -2,7 +2,7 @@ from typing import Union
 from fastapi import FastAPI, Depends, Request, HTTPException, Security
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi.security import OAuth2
+from fastapi.security import OAuth2, OAuth2AuthorizationCodeBearer
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 import os
@@ -11,13 +11,14 @@ from functools import wraps
 from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-from protectedroutes import sub_router  # Add this import
+from pathlib import Path  # Add this import
 import json
 from jose import jwt
 from urllib.request import urlopen
 from authlib.integrations.requests_client import OAuth2Session
-
+from .protectedroutes import sub_router  # Add this import
+from pymongo import MongoClient
+import pandas as pd
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -110,6 +111,7 @@ oauth.register(
         "audience": os.getenv("AUTH0_AUDIENCE")
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
+    **{"use_state": False}
 )
 
 #########################
@@ -315,6 +317,29 @@ async def protected_route(request: Request, token_data: dict = Depends(require_a
     except Exception as e:
         logger.error(f"Protected route error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/join-org")
+async def join_org(
+    invite_code: str,
+    data: dict):
+    client = MongoClient(os.getenv("MONGO_URI"))
+    db = client["memberdb"]
+    orgs_collection = db["organizations"]
+    org_doc = orgs_collection.find_one({"invite_code": invite_code})
+
+    if not org_doc:
+        raise HTTPException(status_code=400, detail="Invalid Invite Code")
+    
+    org_name = org_doc["org_name"]
+    orgs_collection = db[org_name.lower().replace(" ", "_")]
+    orgs_collection.insert_one(data)
+
+    csv_path = f"organizations/{org_name}.csv"
+    df = pd.DataFrame([data])
+    df.to_csv(csv_path, mode="a", header=False, index=False)
+
+    client.close()
+    return {"message": f"You joined {org_name}"}
 
 
 # Include the subroutes under the /protected prefix
