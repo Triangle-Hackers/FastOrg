@@ -50,12 +50,17 @@ async def get_auth0_client():
     client = OAuth2Session(token={"access_token": token_data["access_token"]})
     return client
 
-@sub_router.get("/create-org/{org_name}")
-async def create_org(
-    org_name: str,
-    request: Request):
+@sub_router.post("/create-org")
+async def create_org(request: Request):
     try:
-        # Get user data safely
+        # Get the request body
+        body = await request.json()
+        org_name = body.get("org_name")
+        
+        if not org_name:
+            raise HTTPException(status_code=400, detail="Organization name is required")
+
+        # Rest of your existing code...
         user = request.session.get("user")
         user_id = user['sub']
         formatted_org_name = re.sub(r'[^a-zA-Z0-9_-]', '', org_name).lower()
@@ -173,6 +178,10 @@ async def create_org(
             "invite_code": invite_code
         })
 
+        updated_metadata = {
+            "org_name": formatted_org_name, "completed_setup": True
+        }
+
         get_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
         patch_response = requests.patch(
             get_url,
@@ -181,7 +190,7 @@ async def create_org(
                 'Content-Type': 'application/json'
             },
             json={
-                "user_metadata": { 'org_name' : invite_code }
+                "user_metadata": updated_metadata
             }
         )
         
@@ -211,6 +220,8 @@ async def create_org(
         if not existing_schema:
             schema_collection.insert_one(schema_data)
         
+        user['user_metadata'] = updated_metadata
+        request.session["user"] = user
 
         client.close()
         
