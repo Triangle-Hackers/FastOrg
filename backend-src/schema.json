@@ -10,4 +10,6 @@
       { "name": "email", "label": "Email Address", "type": "email", "required": true },
       { "name": "shirt", "label": "T-Shirt Size", "type": "text", "required": false }
     ]
+
   }  
+
