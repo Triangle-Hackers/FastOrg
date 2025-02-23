@@ -13,6 +13,10 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from protectedroutes import sub_router  # Add this import
+import json
+from jose import jwt
+from urllib.request import urlopen
+from authlib.integrations.requests_client import OAuth2Session
 
 import logging
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,10 +30,6 @@ logger = logging.getLogger(__name__)
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Add OAuth2 scheme for Swagger UI
 class OAuth2AuthorizationCodeBearer(OAuth2):
@@ -51,8 +51,6 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         )
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
 
-
-
 # Configure OAuth2 scheme
 auth0_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
@@ -60,11 +58,12 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
     scopes={
         "openid": "OpenID Connect",
         "profile": "Profile",
-        "email": "Email"
+        "email": "Email",
+        "read:users": "Read user information"
     }
 )
 
-# Update FastAPI app configuration with proper CORS settings
+# Update FastAPI app configuration
 app = FastAPI(
     title="OrgCRM",
     description="API with Auth0 authentication",
@@ -75,9 +74,11 @@ app = FastAPI(
         "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
         "scopes": ["openid", "profile", "email"],
         "usePkceWithAuthorizationCodeGrant": True,
+        "additionalQueryStringParams": {
+            "audience": os.getenv("AUTH0_AUDIENCE")
+        }
     }
 )
-
 
 # Configure session middleware
 app.add_middleware(
@@ -106,6 +107,7 @@ oauth.register(
     client_kwargs={
         "scope": "openid profile email",
         "response_type": "code",
+        "audience": os.getenv("AUTH0_AUDIENCE")
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
@@ -114,74 +116,78 @@ oauth.register(
 # Authentication System #
 #########################
 
-# Auth dependency for protected routes
+# Add these constants after the logging setup
+ALGORITHMS = ["RS256"]
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
+API_AUDIENCE = os.getenv('AUTH0_AUDIENCE')  # Add this to your .env file
+
+# Replace the require_auth function with this updated version
 async def require_auth(request: Request, token: str = Security(auth0_scheme)):
     """
-    Authentication dependency that protects routes from unauthorized access.
-    Checks both session and token-based authentication.
+    Validates JWT token and checks if user is authenticated.
     """
-    # First check session-based auth
-    user = request.session.get("user")
-    logger.info(f"Session data: {request.session}")
-    logger.info(f"User data from session: {user}")
-    
-    if user:
-        return user
+    try:
+        logger.info("Received token for validation")
         
-    # If no session, verify token
-    if token:
+        # Ensure token is properly formatted
+        if token.startswith('Bearer '):
+            token = token.split(' ')[1]
+        
+        # Log token format (first few characters)
+        if token:
+            logger.info(f"Token preview: {token[:10]}...")
+        
+        # Get the JWKS from Auth0
+        jwks = json.loads(
+            urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read()
+        )
+        
         try:
-            logger.info(f"Received token: {token[:10]}...")  # Log first 10 chars of token
-            
-            # Create token object expected by Auth0 client
-            token_obj = {
-                "access_token": token,
-                "token_type": "Bearer"
-            }
-            
-            # Log the full token object for debugging
-            logger.info(f"Using token object: {token_obj}")
-            
-            # Try direct HTTP headers approach
-            headers = {
-                "Authorization": f"Bearer {token}"
-            }
-            logger.info(f"Using headers: {headers}")
-            
-            # Get user info from Auth0 using the client's HTTP session
-            userinfo = await oauth.auth0._client.get(
-                "userinfo",
-                headers=headers,
-                token=token_obj
-            )
-            logger.info(f"Successfully got userinfo: {userinfo}")
-            
-            # Store the user info in session
-            request.session["user"] = userinfo
-            return userinfo
-            
-        except Exception as e:
-            logger.error(f"Token verification failed - Full error: {str(e)}")
-            logger.error(f"Token type: {type(token)}")
+            # Add specific logging for header decoding
+            unverified_header = jwt.get_unverified_header(token)
+            logger.info(f"Successfully decoded token header: {unverified_header}")
+        except Exception as header_error:
+            logger.error(f"Error decoding token header: {str(header_error)}")
             raise HTTPException(
-                status_code=401,
-                detail={
-                    "error": "Token verification failed",
-                    "message": str(e),
-                    "token_type": str(type(token))
-                }
+                status_code=401, 
+                detail=f"Error decoding token headers: {str(header_error)}"
             )
-    
-    # If neither session nor token authentication worked
-    raise HTTPException(
-        status_code=401, 
-        detail={
-            "error": "Not authenticated",
-            "message": "No valid session or token found. Please ensure you are logged in.",
-            "session_exists": bool(request.session),
-            "token_provided": bool(token)
-        }
-    )
+
+        # Verify the token
+        rsa_key = {}
+        
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n": key["n"],
+                    "e": key["e"]
+                }
+                break
+
+        if rsa_key:
+            payload = jwt.decode(
+                token,
+                rsa_key,
+                algorithms=ALGORITHMS,
+                audience=API_AUDIENCE,
+                issuer=f"https://{AUTH0_DOMAIN}/"
+            )
+            
+            # Store validated claims in request state
+            request.state.user = payload
+            return payload
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTClaimsError:
+        raise HTTPException(status_code=401, detail="Invalid claims")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 #######################
 # Authentication Flow #
@@ -221,16 +227,19 @@ async def login(request: Request):
 async def auth(request: Request):
     """
     OAuth2 callback endpoint that handles the response from Auth0.
-    This endpoint completes the authentication flow and establishes the user session.
     """
     try:
         logger.info("Starting auth callback processing")
         token = await oauth.auth0.authorize_access_token(request)
         
-        # Get user info directly instead of parsing id_token
+        # Get user info from Auth0's userinfo endpoint
         userinfo = await oauth.auth0.userinfo(token=token)
-
+        logger.info(f"Received user info: {userinfo}")
+        
+        # Store both token and userinfo in session
         request.session["user"] = userinfo
+        request.session["access_token"] = token.get("access_token")
+        
         return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
         logger.error(f"Auth callback error: {str(e)}")
@@ -276,26 +285,36 @@ async def home(request: Request):
 # Protected route example that requires authentication
 # Uses the require_auth dependency to ensure only authenticated users can access
 @app.get("/protected")
-async def protected_route(user: dict = Depends(require_auth)):
+async def protected_route(request: Request, token_data: dict = Depends(require_auth)):
     """
     Protected route that requires authentication to access.
-    Demonstrates use of the require_auth dependency for route protection.
-    
-    Args:
-        user: Dict containing user information, injected by require_auth dependency
-    
-    Returns:
-        dict: Protected content including user info and authentication provider
-    
-    Note:
-        The login_provider is extracted from the Auth0 'sub' claim which follows
-        the format 'provider|user_id'
     """
-    return {
-        "message": "This is a protected route",
-        "user": user,
-        "login_provider": user.get('sub', '').split('|')[0]
-    }
+    try:
+        # Get the user info from the session
+        user = request.session.get("user")
+        
+        if not user:
+            logger.info("No user in session, using token data")
+            # Instead of trying to fetch from Auth0 again, use the token_data
+            # The token_data already contains the necessary user information
+            user = {
+                "sub": token_data.get("sub"),
+                "email": token_data.get("email"),
+                "nickname": token_data.get("nickname"),
+                # Add any other relevant fields from token_data
+            }
+            # Store user info in session for future requests
+            request.session["user"] = user
+            
+        return {
+            "message": "This is a protected route",
+            "token_data": token_data,
+            "user_info": user,
+            "login_provider": token_data.get('sub', '').split('|')[0]
+        }
+    except Exception as e:
+        logger.error(f"Protected route error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Include the subroutes under the /protected prefix

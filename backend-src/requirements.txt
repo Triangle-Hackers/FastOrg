@@ -9,3 +9,4 @@ gspread
 pandas
 oauth2client
 openai
+python-jose[cryptography]
