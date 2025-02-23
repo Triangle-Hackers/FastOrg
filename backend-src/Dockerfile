@@ -11,4 +11,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 EXPOSE 8000
 
-CMD uvicorn mainapi:app --host 0.0.0.0 --port ${PORT:-8000}
+# Create a shell script to handle the PORT variable
+RUN echo '#!/bin/bash\n\
+PORT="${PORT:-8000}"\n\
+exec uvicorn mainapi:app --host 0.0.0.0 --port "$PORT"' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+CMD ["/bin/bash", "/app/start.sh"]
