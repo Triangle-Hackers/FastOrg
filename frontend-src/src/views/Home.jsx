@@ -24,6 +24,10 @@ const Home = ({
         }
     }, []);
 
+    const [mode] = useState(() => {
+            return localStorage.getItem('mode') || 'light';
+        });
+
     const [isEditMode, setIsEditMode] = useState(false);
     const [editedRoster, setEditedRoster] = useState(roster);
 
@@ -53,7 +57,7 @@ const Home = ({
 
 
     return (
-        <div className="home-container">
+        <div className={`home-container ${mode}`}>
             <Navbar />
 
             <div className="main-content-wrapper">

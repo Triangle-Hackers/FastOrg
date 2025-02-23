@@ -11,10 +11,14 @@ const Settings = ({
 }) => {
     const [activeTab, setActiveTab] = useState('account');
     const [nickname, setNickname] = useState(user?.nickname || '');
-    const [mode, setMode] = useState('light');
+    const [mode, setMode] = useState(() => {
+        return localStorage.getItem('mode') || 'light';
+    });
 
     const handleChangeMode = (e) => {
-        setMode(e.target.value);
+        const selectedMode = e.target.value;
+        setMode(selectedMode);
+        localStorage.setItem('mode', selectedMode);
     };
 
     const handleSubmit = async (e) => {
@@ -44,7 +48,7 @@ const Settings = ({
             </div>
 
             <div className="settings-content">
-                <h1>Settings</h1>
+                <h1 style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Settings</h1>
                 
                 <div className="settings-tabs">
                     <button 
@@ -66,7 +70,7 @@ const Settings = ({
                         <h2>Account Settings</h2>
                         <div className="settings-form">
                             <div className="form-group">
-                                <label>Nickname</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Nickname</label>
                                 <input 
                                     type="text" 
                                     value={nickname}
@@ -75,7 +79,7 @@ const Settings = ({
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Email</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Email</label>
                                 <input type="email" value={user?.email} readOnly />
                             </div>
                             <button 
@@ -92,7 +96,7 @@ const Settings = ({
                         <h2>App Settings</h2>
                         <div className="settings-form">
                             <div className="form-group">
-                                <label>Notification Preferences</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Notification Preferences</label>
                                 <select defaultValue="all">
                                     <option value="all">All Notifications</option>
                                     <option value="important">Important Only</option>
@@ -100,14 +104,14 @@ const Settings = ({
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Theme</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Theme</label>
                                 <select value={mode} onChange={handleChangeMode}>
                                     <option value="light">Light</option>
                                     <option value="dark">Dark</option>
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Language</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Language</label>
                                 <select defaultValue="en">
                                     <option value="en">English</option>
                                     <option value="es">Spanish</option>
@@ -115,7 +119,7 @@ const Settings = ({
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Email Digest</label>
+                                <label style={{ color: mode === 'light' ? '#333333' : '#ffffff' }}>Email Digest</label>
                                 <select defaultValue="daily">
                                     <option value="daily">Daily</option>
                                     <option value="weekly">Weekly</option>

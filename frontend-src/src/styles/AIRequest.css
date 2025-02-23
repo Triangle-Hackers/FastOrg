@@ -4,6 +4,14 @@ html, body {
     padding: 0;
 }
 
+.light {
+    --deep-gradient: linear-gradient(135deg, rgba(236,102,113,0.3), rgba(18,187,136,0.3));
+}
+
+.dark {
+    --deep-gradient: linear-gradient(135deg, rgba(82, 27, 31, 0.774), rgba(13, 34, 28, 0.849));
+}
+
 .ai-container {
     display: flex;
     flex-direction: column;
@@ -43,7 +51,7 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(236,102,113,0.3), rgba(18,187,136,0.3));
+    background: var(--deep-gradient);
 }
 
 .responses {
@@ -71,7 +79,7 @@ html, body {
 .chat-box button {
     padding: 0.8rem 1.2rem;
     font-size: 1rem;
-    background: linear-gradient(45deg, #12bb88, #ec6671);
+    background: var(--deep-gradient);
     color: #fff;
     border: none;
     border-radius: 4px;

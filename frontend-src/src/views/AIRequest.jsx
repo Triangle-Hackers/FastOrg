@@ -7,6 +7,10 @@ const AIRequest = () => {
     const [mValue, setMValue] = useState(1);
     const [tableHTML, setTableHTML] = useState('');
 
+    const [mode] = useState(() => {
+                return localStorage.getItem('mode') || 'light';
+            });
+
     const handleTableGeneration = (e) => {
         e.preventDefault();
 
@@ -40,7 +44,7 @@ const AIRequest = () => {
     };
 
     return (
-        <div className="ai-container">
+        <div className={`ai-container ${mode}`}>
             
             {/* Navbar */}
             <Navbar />
