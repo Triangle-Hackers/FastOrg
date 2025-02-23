@@ -9,20 +9,33 @@ const FirstTimeSetupController = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkIfNewUser();
-  }, []);
+    if (isLoggedIn) {
+      checkIfNewUser();
+    }
+  }, [isLoggedIn]);
 
   const checkIfNewUser = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/verify-session', {
+      // Verify session
+      const sessionRes = await fetch('http://localhost:8000/verify-session', {
         credentials: 'include',
       });
-      if (!res.ok) {
+      if (!sessionRes.ok) {
         throw new Error('Not authenticated');
       }
-      const data = await res.json();
-      const completed = data.user?.app_metadata?.completed_setup;
+
+      // Fetch full user profile
+      const profileRes = await fetch('http://localhost:8000/fetch-full-profile', {
+        credentials: 'include',
+      });
+      if (!profileRes.ok) {
+        throw new Error('Failed to fetch full profile');
+      }
+
+      const fullProfile = await profileRes.json();
+      const completed = fullProfile.app_metadata?.completed_setup;
+      console.log(fullProfile);
       // If user has completed setup, redirect to home
       if (completed) {
         navigate('/home');
@@ -37,8 +50,8 @@ const FirstTimeSetupController = () => {
     }
   };
 
+
   const handleFinishSetup = async (setupData) => {
-    // We assume we have an endpoint that marks the user's completed_setup as true
     try {
       const res = await fetch('http://localhost:8000/complete-setup', {
         method: 'PUT',
