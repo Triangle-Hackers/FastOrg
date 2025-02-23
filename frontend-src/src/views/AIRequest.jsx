@@ -6,7 +6,9 @@ const AIRequest = () => {
     const [nValue, setNValue] = useState(1);
     const [mValue, setMValue] = useState(1);
     const [tableHTML, setTableHTML] = useState('');
-
+    const [request, setRequest] = useState('');
+    const [loading, setLoading] = useState(false);
+    
     const [mode] = useState(() => {
                 return localStorage.getItem('mode') || 'light';
             });
@@ -87,6 +89,22 @@ const AIRequest = () => {
                         </label>
 
                         <button type="submit">Generate Table</button>
+                    </form>
+
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAIRequest();
+                    }}>
+                        <textarea 
+                            value={request} 
+                            onChange={(e) => setRequest(e.target.value)} 
+                            placeholder="Enter your request..." 
+                            rows={4} 
+                            style={{ width: '100%' }} 
+                        />
+                        <button type="submit" disabled={loading}>
+                            {loading ? 'Processing...' : 'Submit'}
+                        </button>
                     </form>
                 </div>
             </div>
