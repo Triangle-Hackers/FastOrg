@@ -22,6 +22,7 @@ from pymongo import MongoClient
 import pandas as pd
 import logging
 from fastapi.middleware.cors import CORSMiddleware
+from components.schema_to_str import json_to_string
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -219,7 +220,7 @@ async def login(request: Request):
             request,
             redirect_uri,
             response_type="code",
-            scope="openid profile email",  # Make sure 'email' is included
+            scope="openid profile email",
             audience=os.getenv("AUTH0_AUDIENCE")
         )
     except Exception as e:
@@ -422,7 +423,7 @@ app.include_router(
 
 # OpenAI MQL generation endpoint
 @app.post("/generate-mql")
-async def generate_mql(prompt: str, schema: Union[str, None] = None):
+async def generate_mql(prompt: str):
     """
     Generates MongoDB query (MQL) based on natural language prompt using OpenAI
     Args:
@@ -434,8 +435,11 @@ async def generate_mql(prompt: str, schema: Union[str, None] = None):
         
         # Construct system message based on schema presence
         system_message = "You are a MongoDB expert. Generate only MongoDB query language (MQL) code without explanation."
-        if schema:
-            system_message += f"\nUse the following collection schema:\n{schema}"
+        system_message += f"\nUse the following collection schema:\n{json_to_string('schema.json')}"
+        system_message += "There are two cases: 1) The user is asking for a query to retrieve data. 2) the user is asking for something else"
+        system_message += """If the user is asking for a query to retrieve data, generate the MQL query and 
+        nothing else! If the user is asking for something else, generate the word NO in capital letters and 
+        absolutely nothing else!"""
         
         # Create the completion request
         response = client.chat.completions.create(
@@ -454,7 +458,6 @@ async def generate_mql(prompt: str, schema: Union[str, None] = None):
         return {
             "mql": mql,
             "prompt": prompt,
-            "schema": schema
         }
         
     except Exception as e:
