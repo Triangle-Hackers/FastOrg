@@ -107,7 +107,7 @@ oauth.register(
     client_id=os.getenv("AUTH0_CLIENT_ID"),
     client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
     client_kwargs={
-        "scope": "openid profile email",
+        "scope": "openid profile email",  # Make sure 'email' is included
         "response_type": "code",
         "audience": os.getenv("AUTH0_AUDIENCE")
     },
@@ -210,16 +210,6 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
 async def login(request: Request):
     """
     Initiates the OAuth2 authentication flow with Auth0.
-    This endpoint starts the login process by redirecting to Auth0's Universal Login Page.
-    
-    Args:
-        request: FastAPI Request object
-    
-    Returns:
-        RedirectResponse: Redirects to Auth0 login
-        
-    Raises:
-        HTTPException: If authentication initialization fails
     """
     try:
         redirect_uri = "http://localhost:8000/auth"
@@ -229,7 +219,8 @@ async def login(request: Request):
             request,
             redirect_uri,
             response_type="code",
-            scope="openid profile email"
+            scope="openid profile email",  # Make sure 'email' is included
+            audience=os.getenv("AUTH0_AUDIENCE")
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
@@ -246,16 +237,55 @@ async def auth(request: Request):
         
         # Get user info from Auth0's userinfo endpoint
         userinfo = await oauth.auth0.userinfo(token=token)
-        logger.info(f"Received user info: {userinfo}")
+        logger.info(f"Received user info: {userinfo}")  # Add this log
         
-        # Store both token and userinfo in session
-        request.session["user"] = userinfo
-        request.session["access_token"] = token.get("access_token")
+        # Verify the token and get claims
+        access_token = token.get("access_token")
+        if access_token:
+            # Get the JWKS from Auth0
+            jwks = json.loads(
+                urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read()
+            )
+            
+            unverified_header = jwt.get_unverified_header(access_token)
+            rsa_key = {}
+            for key in jwks["keys"]:
+                if key["kid"] == unverified_header["kid"]:
+                    rsa_key = {
+                        "kty": key["kty"],
+                        "kid": key["kid"],
+                        "use": key["use"],
+                        "n": key["n"],
+                        "e": key["e"]
+                    }
+                    break
+
+            if rsa_key:
+                verified_claims = jwt.decode(
+                    access_token,
+                    rsa_key,
+                    algorithms=ALGORITHMS,
+                    audience=API_AUDIENCE,
+                    issuer=f"https://{AUTH0_DOMAIN}/"
+                )
+                # Merge verified claims with userinfo
+                userinfo.update(verified_claims)
+        
+        # Store both token and verified userinfo in session
+        request.session["user"] = {
+            "sub": userinfo.get("sub"),
+            "email": userinfo.get("email"),
+            "nickname": userinfo.get("nickname"),
+            "name": userinfo.get("name"),
+            "picture": userinfo.get("picture")
+        }
+        request.session["access_token"] = access_token
         
         return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
         logger.error(f"Auth callback error: {str(e)}")
         return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
+
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -331,25 +361,54 @@ async def protected_route(request: Request, token_data: dict = Depends(require_a
 @app.post("/join-org")
 async def join_org(
     invite_code: str,
-    data: dict):
-    client = MongoClient(os.getenv("MONGO_URI"))
-    db = client["memberdb"]
-    orgs_collection = db["organizations"]
-    org_doc = orgs_collection.find_one({"invite_code": invite_code})
+    data: dict,
+    request: Request):
+    try:
+        # Get the user from the session
+        user = request.session.get("user")
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not org_doc:
-        raise HTTPException(status_code=400, detail="Invalid Invite Code")
-    
-    org_name = org_doc["org_name"]
-    orgs_collection = db[org_name.lower().replace(" ", "_")]
-    orgs_collection.insert_one(data)
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        orgs_collection = db["organizations"]
+        org_doc = orgs_collection.find_one({"invite_code": invite_code})
 
-    csv_path = f"organizations/{org_name}.csv"
-    df = pd.DataFrame([data])
-    df.to_csv(csv_path, mode="a", header=False, index=False)
+        if not org_doc:
+            raise HTTPException(status_code=400, detail="Invalid Invite Code")
+        
+        org_name = org_doc["org_name"]
 
-    client.close()
-    return {"message": f"You joined {org_name}"}
+        # Update Auth0 user metadata with organization
+        auth0_client = await get_auth0_client()
+        auth0_response = auth0_client.patch(
+            f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/users/{user['sub']}",
+            json={
+                "user_metadata": {
+                    "org_name": org_name
+                }
+            }
+        )
+
+        if not auth0_response.ok:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to update user organization in Auth0"
+            )
+
+        # Update session with new org_name
+        user['org_name'] = org_name
+        request.session["user"] = user
+
+        # Store member data in organization's collection
+        org_collection = db[org_name.lower().replace(" ", "_")]
+        org_collection.insert_one(data)
+
+        client.close()
+        return {"message": f"You joined {org_name}"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Include the subroutes under the /protected prefix
@@ -425,7 +484,28 @@ async def verify_session(request: Request):
             "user": user
         }
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+      logger.error(f"Session verification error: {str(e)}")
+      raise HTTPException(status_code=401, detail="Session verification failed")
+
+async def get_auth0_client() -> OAuth2Session:
+    """
+    Creates an authenticated client for Auth0 Management API
+    """
+    # Create OAuth2 session with client credentials
+    auth0_client = OAuth2Session(
+        client_id=os.getenv("AUTH0_CLIENT_ID"),
+        client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
+        token_endpoint=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token"
+    )
+    
+    # Get access token for Management API
+    token = auth0_client.fetch_token(
+        url=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+        grant_type="client_credentials",
+        audience=f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/"
+    )
+    
+    return auth0_client
     
 @app.get("/fetch-full-profile")
 async def fetch_full_profile(request: Request):

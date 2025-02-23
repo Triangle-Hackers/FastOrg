@@ -1,4 +1,7 @@
 import React, { useEffect } from 'react';
+import React from 'react';
+import PropTypes from 'prop-types';
+import { NavLink } from 'react-router-dom';
 import '../styles/Home.css';
 import Navbar from '../components/Navbar';
 import { getCompletedSetup } from '../components/global_setup_state';
@@ -7,7 +10,12 @@ import { useNavigate } from 'react-router-dom';
 const Home = ({ 
     userData, 
     loading, 
-    error, 
+    error,
+    roster,
+    setRoster,
+    infoMessage,
+    setInfoMessage,
+    handleViewRoster, 
 }) => {
     const navigate = useNavigate();
     useEffect(() => {
@@ -28,19 +36,40 @@ const Home = ({
                     <section className="operations-section">
                         <h2>Operations</h2>
                         <div className="buttons">
-                            <button>Operation 1</button>
+                            <button onClick={handleViewRoster}>View Full Roster</button>
                             <button>Operation 2</button>
                             <button>Operation 3</button>
                         </div>
                     </section>
                     <section className="info-section">
                         <h2>Information</h2>
-                        <p>Requested information will appear here...</p>
+                        {roster && roster.length > 0 ? (
+                            <ul>
+                                {roster.map((member, index) => (
+                                    <li key={index}>
+                                        {member.name} - {member.role}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p>{infoMessage}</p>
+                        )}
                     </section>
                 </main>
             </div>
         </div>
     );
 };
+
+Home.propTypes = {
+    userData: PropTypes.object,
+    loading: PropTypes.bool.isRequired,
+    error: PropTypes.string,
+    roster: PropTypes.array.isRequired,
+    setRoster: PropTypes.func.isRequired,
+    infoMessage: PropTypes.string.isRequired,
+    setInfoMessage: PropTypes.func.isRequired,
+    handleViewRoster: PropTypes.func.isRequired,
+}
 
 export default Home;
