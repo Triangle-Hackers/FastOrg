@@ -106,7 +106,9 @@ const Home = ({
                                     <ul>
                                         {roster.map((member, index) => (
                                             <li key={index}>
-                                                {member.name} - {member.role}
+                                                {Object.entries(member).map(([key, value]) => (
+                                                    <span key={key}><strong>{key}:</strong> {value} | </span>
+                                                ))}
                                             </li>
                                         ))}
                                     </ul>
