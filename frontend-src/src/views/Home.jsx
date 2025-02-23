@@ -1,8 +1,12 @@
+
+import React, { useEffect } from 'react';
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 import '../styles/Home.css';
 import Navbar from '../components/Navbar';
+import { getCompletedSetup } from '../components/global_setup_state';
+import { useNavigate } from 'react-router-dom';
 
 const Home = ({ 
     userData, 
@@ -14,6 +18,12 @@ const Home = ({
     setInfoMessage,
     handleViewRoster, 
 }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!getCompletedSetup()) {
+            navigate('/setup');
+        }
+    }, []);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editedRoster, setEditedRoster] = useState(roster);
 
