@@ -1,5 +1,5 @@
 from typing import Union
-from fastapi import FastAPI, Depends, Request, HTTPException, Security
+from fastapi import FastAPI, Depends, Request, HTTPException, Security, Header
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
 from fastapi.security import OAuth2, OAuth2AuthorizationCodeBearer
@@ -24,7 +24,7 @@ import logging
 from fastapi.middleware.cors import CORSMiddleware
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -85,7 +85,9 @@ app = FastAPI(
 # Configure session middleware
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("APP_SECRET_KEY")
+    secret_key=os.getenv("APP_SECRET_KEY"),
+    same_site="lax",   # Allows the cookie in cross-site requests during development
+    https_only=False   # Disable secure flag for local HTTP testing
 )
 
 app.add_middleware(
@@ -125,41 +127,31 @@ ALGORITHMS = ["RS256"]
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
 API_AUDIENCE = os.getenv('AUTH0_AUDIENCE')  # Add this to your .env file
 
-# Replace the require_auth function with this updated version
-async def require_auth(request: Request, token: str = Security(auth0_scheme)):
-    """
-    Validates JWT token and checks if user is authenticated.
-    """
-    try:
-        logger.info("Received token for validation")
-        
-        # Ensure token is properly formatted
-        if token.startswith('Bearer '):
-            token = token.split(' ')[1]
-        
-        # Log token format (first few characters)
-        if token:
-            logger.info(f"Token preview: {token[:10]}...")
-        
-        # Get the JWKS from Auth0
-        jwks = json.loads(
-            urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read()
-        )
-        
-        try:
-            # Add specific logging for header decoding
-            unverified_header = jwt.get_unverified_header(token)
-            logger.info(f"Successfully decoded token header: {unverified_header}")
-        except Exception as header_error:
-            logger.error(f"Error decoding token header: {str(header_error)}")
-            raise HTTPException(
-                status_code=401, 
-                detail=f"Error decoding token headers: {str(header_error)}"
-            )
 
-        # Verify the token
-        rsa_key = {}
+async def get_token(request: Request, authorization: str = Header(None)):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    if not token:
+        token = request.session.get("access_token")
+    return token
+
+
+
+
+# Replace the require_auth function with this updated version
+async def require_auth(request: Request, token: str = Depends(get_token)):
+    # Log the token for debugging
+    logger.info("Token from header or session: %s", token)
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        # Get the JWKS from Auth0
+        jwks = json.loads(urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read())
         
+        unverified_header = jwt.get_unverified_header(token)
+        rsa_key = {}
         for key in jwks["keys"]:
             if key["kid"] == unverified_header["kid"]:
                 rsa_key = {
@@ -170,7 +162,7 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
                     "e": key["e"]
                 }
                 break
-
+        
         if rsa_key:
             payload = jwt.decode(
                 token,
@@ -179,18 +171,16 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
                 audience=API_AUDIENCE,
                 issuer=f"https://{AUTH0_DOMAIN}/"
             )
-            
-            # Store validated claims in request state
             request.state.user = payload
             return payload
-            
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.JWTClaimsError:
         raise HTTPException(status_code=401, detail="Invalid claims")
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
-
+    
     raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 #######################
@@ -224,12 +214,9 @@ async def auth(request: Request):
     OAuth2 callback endpoint that handles the response from Auth0.
     """
     try:
-        logger.info("Starting auth callback processing")
         token = await oauth.auth0.authorize_access_token(request)
         
-        # Get user info from Auth0's userinfo endpoint
         userinfo = await oauth.auth0.userinfo(token=token)
-        logger.info(f"Received user info: {userinfo}")  # Add this log
         
         # Verify the token and get claims
         access_token = token.get("access_token")
@@ -275,7 +262,6 @@ async def auth(request: Request):
         
         return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
-        logger.error(f"Auth callback error: {str(e)}")
         return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
 
 

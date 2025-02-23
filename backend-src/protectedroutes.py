@@ -187,6 +187,10 @@ async def get_roster(request: Request):
     Retrieves the full roster of the authenticated user's organization.
     """
     user = request.session.get("user")
+    
+    # Log the saved user data
+    logger.info(f"User data: {user}")
+    
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
