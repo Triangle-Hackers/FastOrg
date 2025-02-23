@@ -1,11 +1,11 @@
 from typing import Union
 from fastapi import FastAPI, Depends, Request, HTTPException, Security, Header
 from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi.security import OAuth2, OAuth2AuthorizationCodeBearer
+
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 import os
+from security import auth0_scheme, require_auth
 from dotenv import find_dotenv, load_dotenv
 from functools import wraps
 from openai import OpenAI
@@ -34,54 +34,28 @@ ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
-# Add OAuth2 scheme for Swagger UI
-class OAuth2AuthorizationCodeBearer(OAuth2):
-    def __init__(
-        self,
-        authorizationUrl: str,
-        tokenUrl: str,
-        refreshUrl: str = None,
-        scheme_name: str = None,
-        scopes: dict = None,
-    ):
-        flows = OAuthFlowsModel(
-            authorizationCode={
-                "authorizationUrl": authorizationUrl,
-                "tokenUrl": tokenUrl,
-                "refreshUrl": refreshUrl,
-                "scopes": scopes or {},
-            }
-        )
-        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
 
-# Configure OAuth2 scheme
-auth0_scheme = OAuth2AuthorizationCodeBearer(
-    authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
-    tokenUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
-    scopes={
-        "openid": "OpenID Connect",
-        "profile": "Profile",
-        "email": "Email",
-        "read:users": "Read user information"
-    }
-)
+
+
 
 # Update FastAPI app configuration
 app = FastAPI(
     title="OrgCRM",
     description="API with Auth0 authentication",
     version="1.0.0",
-    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",  # Ensure this URL is correct
     swagger_ui_init_oauth={
         "clientId": os.getenv("AUTH0_CLIENT_ID"),
         "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
-        "scopes": ["openid", "profile", "email"],
+        "scopes": "openid profile email",  # Ensure scopes are a space-separated string
         "usePkceWithAuthorizationCodeGrant": True,
         "additionalQueryStringParams": {
             "audience": os.getenv("AUTH0_AUDIENCE")
         }
     }
 )
+
+
 
 # Configure session middleware
 app.add_middleware(
@@ -138,61 +112,6 @@ def decode_jwt(token):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-
-async def get_token(request: Request, authorization: str = Header(None)):
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
-    if not token:
-        token = request.session.get("access_token")
-    return token
-
-
-
-
-# Replace the require_auth function with this updated version
-async def require_auth(request: Request, token: str = Security(get_token)):
-    # Log the token for debugging
-    logger.info("Token from header or session: %s", token)
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    try:
-        # Get the JWKS from Auth0
-        jwks = json.loads(urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read())
-        
-        unverified_header = jwt.get_unverified_header(token)
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key["use"],
-                    "n": key["n"],
-                    "e": key["e"]
-                }
-                break
-        
-        if rsa_key:
-            payload = jwt.decode(
-                token,
-                rsa_key,
-                algorithms=ALGORITHMS,
-                audience=API_AUDIENCE,
-                issuer=f"https://{AUTH0_DOMAIN}/"
-            )
-            request.state.user = payload
-            return payload
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTClaimsError:
-        raise HTTPException(status_code=401, detail="Invalid claims")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    
-    raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 #######################
 # Authentication Flow #
@@ -316,32 +235,22 @@ async def home(request: Request):
 # Protected route example that requires authentication
 # Uses the require_auth dependency to ensure only authenticated users can access
 @app.get("/protected")
-async def protected_route(request: Request, token_data: dict = Depends(require_auth)):
+async def protected_route(request: Request, token: str = Depends(auth0_scheme)):
     """
     Protected route that requires authentication to access.
     """
+    # The token is automatically passed by Swagger UI
     try:
-        # Get the user info from the session
-        user = request.session.get("user")
-        
+        # Retrieve user info from session
+        user = request.session.get("user")  # Now 'request' is defined
         if not user:
             logger.info("No user in session, using token data")
-            # Instead of trying to fetch from Auth0 again, use the token_data
-            # The token_data already contains the necessary user information
-            user = {
-                "sub": token_data.get("sub"),
-                "email": token_data.get("email"),
-                "nickname": token_data.get("nickname"),
-                # Add any other relevant fields from token_data
-            }
-            # Store user info in session for future requests
-            request.session["user"] = user
-            
+            # Implement your token decoding logic here if needed
+        
         return {
             "message": "This is a protected route",
-            "token_data": token_data,
             "user_info": user,
-            "login_provider": token_data.get('sub', '').split('|')[0]
+            "token": token  # Return the token for debugging purposes
         }
     except Exception as e:
         logger.error(f"Protected route error: {str(e)}")

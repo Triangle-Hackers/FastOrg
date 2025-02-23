@@ -8,6 +8,8 @@ from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
 import logging
 import re
+from fastapi.security import OAuth2AuthorizationCodeBearer
+from security import auth0_scheme, require_auth
 
 logger = logging.getLogger(__name__)
 from pymongo import MongoClient
@@ -53,7 +55,9 @@ async def get_auth0_client():
 @sub_router.get("/create-org/{org_name}")
 async def create_org(
     org_name: str,
-    request: Request):
+    request: Request,
+    token: str = Depends(require_auth)  # Ensure token is retrieved
+):
     try:
         # Get user data safely
         user = request.session.get("user")
@@ -182,7 +186,10 @@ async def create_org(
     
     
 @sub_router.get("/get-roster")
-async def get_roster(request: Request):
+async def get_roster(
+    request: Request,
+    token: str = Depends(require_auth)  # Ensure token is retrieved
+):
     """
     Retrieves the full roster of the authenticated user's organization.
     """
