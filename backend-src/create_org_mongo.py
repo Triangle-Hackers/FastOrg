@@ -32,6 +32,35 @@ def create_org_mongo(org_name):
         
         db = client["memberdb"]
         create_new_collection(db, org_name)
+
+        collection_name = org_name.replace(" ", "_").lower()
+        org_collection = db[collection_name]
+
+        # Schemas to be stored
+        schema_collection = db["schemas"]
+        schema_document = {
+            "org_name": org_name,
+            "fields": [
+                {"name": "name", "label": "Enter your name", "type": "text", "required": True},
+                {"name": "class", "label": "Year/Class", "type": "text", "required": True},
+                {"name": "address", "label": "Home address", "type": "text", "required": False},
+                {"name": "gpa", "label": "GPA", "type": "number", "required": False},
+                {"name": "major", "label": "Major", "type": "text", "required": False},
+                {"name": "grad", "label": "Expected Graduating Date", "type": "text", "required": True},
+                {"name": "phone", "label": "Phone Number", "type": "text", "required": False},
+                {"name": "email", "label": "Email Address", "type": "email", "required": True},
+                {"name": "shirt", "label": "T-Shirt Size", "type": "text", "required": False}
+            ]
+        }
+
+        existing_schema = schema_collection.find_one({"org_name": org_name})
+        if not existing_schema:
+            schema_collection.insert_one(schema_document)
+
+        if org_collection.count_documents({}) == 0:
+            org_collection.insert_one({"initialized": True})  # Placeholder document
+
+
         return True
         
     except Exception as e:
