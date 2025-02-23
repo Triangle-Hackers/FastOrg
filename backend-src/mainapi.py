@@ -17,6 +17,7 @@ from jose import jwt
 from urllib.request import urlopen
 from authlib.integrations.requests_client import OAuth2Session
 from protectedroutes import sub_router  # Add this import
+import requests
 from pymongo import MongoClient
 import pandas as pd
 import logging
@@ -117,6 +118,7 @@ oauth.register(
 #########################
 # Authentication System #
 #########################
+
 
 # Add these constants after the logging setup
 ALGORITHMS = ["RS256"]
@@ -432,21 +434,20 @@ async def verify_session(request: Request):
     Verifies that the user's session is valid.
     """
     try:
-        logger.info("Verifying session")
-        logger.info(f"Session contents: {request.session}")
-        
         if "user" not in request.session:
-            logger.error("No user in session")
             raise HTTPException(status_code=401, detail="Not authenticated")
-            
-        # Return user info if session is valid
+
+        user = request.session["user"]
+        if "sub" not in user:
+            raise HTTPException(status_code=401, detail="Missing 'sub' in session")
+
         return {
             "status": "valid",
-            "user": request.session["user"]
+            "user": user
         }
     except Exception as e:
-        logger.error(f"Session verification error: {str(e)}")
-        raise HTTPException(status_code=401, detail="Session verification failed")
+      logger.error(f"Session verification error: {str(e)}")
+      raise HTTPException(status_code=401, detail="Session verification failed")
 
 async def get_auth0_client() -> OAuth2Session:
     """
@@ -467,3 +468,130 @@ async def get_auth0_client() -> OAuth2Session:
     )
     
     return auth0_client
+        raise HTTPException(status_code=401, detail=str(e))
+    
+@app.get("/fetch-full-profile")
+async def fetch_full_profile(request: Request):
+    try:
+        user = request.session.get("user")
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    except Exception as e:
+        pass
+    return user
+    
+
+
+@app.put("/update-nickname")
+async def update_nickname(request: Request):
+    try:
+        data = await request.json()
+        new_nickname = data.get('nickname')
+        user_id = request.session["user"]["sub"]
+        
+        # Get Management API token
+        token_response = requests.post(
+            f'https://{os.getenv("AUTH0_DOMAIN")}/oauth/token',
+            headers={'content-type': 'application/json'},
+            json={
+                'client_id': os.getenv('AUTH0_CLIENT_ID'),
+                'client_secret': os.getenv('AUTH0_CLIENT_SECRET'),
+                'audience': f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/',
+                'grant_type': 'client_credentials'
+            }
+        )
+        
+        mgmt_token = token_response.json()['access_token']
+        
+        # Update user nickname
+        update_response = requests.patch(
+            f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}',
+            headers={
+                'Authorization': f'Bearer {mgmt_token}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'nickname': new_nickname
+            }
+        )
+        
+        if update_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to update nickname")
+            
+        # Update session
+        request.session["user"]["nickname"] = new_nickname
+        
+        return {"status": "success", "nickname": new_nickname}
+        
+    except Exception as e:
+        logger.error(f"Error updating nickname: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update nickname")
+
+@app.put("/complete-setup")
+async def complete_setup(request: Request):
+    """
+    Marks user's setup as complete in Auth0, storing data in app_metadata if desired.
+    """
+    try:
+        session_user = request.session.get("user")
+        if not session_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_id = session_user["sub"]
+        body = await request.json()
+
+        # e.g., store extra data in app_metadata
+        # We'll store "preferredName" and "favoriteColor"
+        app_metadata_updates = {
+            "completed_setup": True,
+            "preferredName": body.get("preferredName", ""),
+            "favoriteColor": body.get("favoriteColor", ""),
+        }
+
+        # Get Management API token
+        token_url = f'https://{os.getenv("AUTH0_DOMAIN")}/oauth/token'
+        token_payload = {
+            'client_id': os.getenv('AUTH0_CLIENT_ID'),
+            'client_secret': os.getenv('AUTH0_CLIENT_SECRET'),
+            'audience': f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/',
+            'grant_type': 'client_credentials',
+            'scope': 'update:users_app_metadata'
+        }
+
+        token_response = requests.post(
+            token_url,
+            headers={'content-type': 'application/json'},
+            json=token_payload
+        )
+
+        if not token_response.ok:
+            raise HTTPException(status_code=500, detail="Could not get management token")
+
+        mgmt_token = token_response.json()['access_token']
+
+        # Patch user in Auth0
+        update_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
+        patch_response = requests.patch(
+            update_url,
+            headers={
+                'Authorization': f'Bearer {mgmt_token}',
+                'Content-Type': 'application/json'
+            },
+            json={"app_metadata": app_metadata_updates}
+        )
+        
+        if not patch_response.ok:
+            raise HTTPException(status_code=400, detail="Auth0 user update failed")
+
+        # Update session as well
+        # Re-fetch user profile or just patch session
+        if "app_metadata" not in request.session["user"]:
+            request.session["user"]["app_metadata"] = {}
+        request.session["user"]["app_metadata"].update(app_metadata_updates)
+
+        return {"status": "success"}
+
+    except HTTPException as e:
+        raise e
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
