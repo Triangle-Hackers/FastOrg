@@ -16,7 +16,15 @@ const SetupWizard = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formData = { org_name: e.target.org_name.value };
+    const org_name = e.target.org_name.value.trim();
+    
+    if (!org_name) {
+      alert('Please enter an organization name');
+      return;
+    }
+    
+    const formData = { org_name };
+    console.log('Submitting form data:', formData); // Add logging
     onFinishSetup(formData);
   };
 

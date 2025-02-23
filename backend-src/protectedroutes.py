@@ -8,10 +8,10 @@ from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
 import logging
 import re
+from pymongo import MongoClient
+import certifi
 
 logger = logging.getLogger(__name__)
-from pymongo import MongoClient
-
 
 sub_router = APIRouter()
 
@@ -72,7 +72,23 @@ async def create_org(request: Request):
             logger.error("No user found in session")
             raise HTTPException(status_code=401, detail="Not authenticated")
         
-        client = MongoClient(os.getenv("MONGO_URI"))
+        # Update the MongoDB client connection
+        client = MongoClient(
+            os.getenv("MONGO_URI"),
+            tls=True,
+            tlsCAFile=certifi.where(),
+            serverSelectionTimeoutMS=5000  # Lower timeout for faster error feedback
+        )
+        
+        # Test the connection
+        try:
+            # Ping the database to confirm connection
+            client.admin.command('ping')
+            logger.info("Successfully connected to MongoDB")
+        except Exception as e:
+            logger.error(f"MongoDB connection failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="Database connection failed")
+
         db = client["memberdb"]
         orgs_collection = db["organizations"]
         schema_collection = db["schemas"]
