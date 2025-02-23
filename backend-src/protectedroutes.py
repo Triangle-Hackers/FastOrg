@@ -190,7 +190,7 @@ async def create_org(request: Request):
                 'Content-Type': 'application/json'
             },
             json={
-                "user_metadata": updated_metadata
+                "user_metadata": { 'org_name': formatted_org_name }
             }
         )
         
