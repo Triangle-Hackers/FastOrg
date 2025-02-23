@@ -37,19 +37,23 @@ const HomeController = () => {
 
     const handleViewRoster = async () => {
         try {
-            const response = await fetch("http://localhost:8000/get-roster", {
+            const response = await fetch("http://localhost:8000/protected/get-roster", {
                 credentials: "include",
             });
             const data = await response.json();
 
             if (data.detail) {
                 setInfoMessage(`Error: ${data.detail}`);
+                setRoster([]);
             } else {
                 setRoster(data.roster);
                 setInfoMessage("");
             }
         } catch (error) {
             setInfoMessage("Failed to fetch roster.");
+            setRoster([]);
+        } finally {
+            setLoading(false);
         }
     };
 
