@@ -107,7 +107,7 @@ oauth.register(
     client_id=os.getenv("AUTH0_CLIENT_ID"),
     client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
     client_kwargs={
-        "scope": "openid profile email",
+        "scope": "openid profile email",  # Make sure 'email' is included
         "response_type": "code",
         "audience": os.getenv("AUTH0_AUDIENCE")
     },
@@ -202,16 +202,6 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
 async def login(request: Request):
     """
     Initiates the OAuth2 authentication flow with Auth0.
-    This endpoint starts the login process by redirecting to Auth0's Universal Login Page.
-    
-    Args:
-        request: FastAPI Request object
-    
-    Returns:
-        RedirectResponse: Redirects to Auth0 login
-        
-    Raises:
-        HTTPException: If authentication initialization fails
     """
     try:
         redirect_uri = "http://localhost:8000/auth"
@@ -221,7 +211,8 @@ async def login(request: Request):
             request,
             redirect_uri,
             response_type="code",
-            scope="openid profile email"
+            scope="openid profile email",  # Make sure 'email' is included
+            audience=os.getenv("AUTH0_AUDIENCE")
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
@@ -238,16 +229,55 @@ async def auth(request: Request):
         
         # Get user info from Auth0's userinfo endpoint
         userinfo = await oauth.auth0.userinfo(token=token)
-        logger.info(f"Received user info: {userinfo}")
+        logger.info(f"Received user info: {userinfo}")  # Add this log
         
-        # Store both token and userinfo in session
-        request.session["user"] = userinfo
-        request.session["access_token"] = token.get("access_token")
+        # Verify the token and get claims
+        access_token = token.get("access_token")
+        if access_token:
+            # Get the JWKS from Auth0
+            jwks = json.loads(
+                urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read()
+            )
+            
+            unverified_header = jwt.get_unverified_header(access_token)
+            rsa_key = {}
+            for key in jwks["keys"]:
+                if key["kid"] == unverified_header["kid"]:
+                    rsa_key = {
+                        "kty": key["kty"],
+                        "kid": key["kid"],
+                        "use": key["use"],
+                        "n": key["n"],
+                        "e": key["e"]
+                    }
+                    break
+
+            if rsa_key:
+                verified_claims = jwt.decode(
+                    access_token,
+                    rsa_key,
+                    algorithms=ALGORITHMS,
+                    audience=API_AUDIENCE,
+                    issuer=f"https://{AUTH0_DOMAIN}/"
+                )
+                # Merge verified claims with userinfo
+                userinfo.update(verified_claims)
+        
+        # Store both token and verified userinfo in session
+        request.session["user"] = {
+            "sub": userinfo.get("sub"),
+            "email": userinfo.get("email"),
+            "nickname": userinfo.get("nickname"),
+            "name": userinfo.get("name"),
+            "picture": userinfo.get("picture")
+        }
+        request.session["access_token"] = access_token
         
         return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
         logger.error(f"Auth callback error: {str(e)}")
         return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
+
 
 @app.get("/logout")
 async def logout(request: Request):
