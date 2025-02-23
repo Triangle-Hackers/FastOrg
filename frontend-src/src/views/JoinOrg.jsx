@@ -39,9 +39,7 @@ const JoinOrg = ({schema, error, successMessage, fetchSchema, submitMemberData, 
                 </div>
             ) : (
                 joined ? (
-                    <div className="join-confirm">
-                        <button onClick={() => window.location.href = "/Home"}>Go to Dashboard</button>
-                    </div>
+                    <div className="join-confirm"></div>
                 ) : (
                     schema && (
                         <form className="org-form" onSubmit={handleSubmit}>

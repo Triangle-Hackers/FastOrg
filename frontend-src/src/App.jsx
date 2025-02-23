@@ -64,7 +64,7 @@ const App = () => {
         <Route path="/ai-request" element={isSessionValid ? <AIController /> : <LandingPage />} />
         <Route path="/settings" element={isSessionValid ? <SettingsController /> : <LandingPage />} />
         <Route path="/setup" element={isSessionValid ? <FirstTimeSetupController /> : <LandingPage />} />
-        <Route path="/join-org" element={isSessionValid ? <JoinOrgController /> : <LandingPage />} />
+        <Route path="/join-org" element={<JoinOrgController />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
