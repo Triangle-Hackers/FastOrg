@@ -21,7 +21,7 @@ echo * > .venv/.gitignore
 ```
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend-src/requirements.txt
 ```
 
 ```bash
