@@ -468,7 +468,6 @@ async def get_auth0_client() -> OAuth2Session:
     )
     
     return auth0_client
-        raise HTTPException(status_code=401, detail=str(e))
     
 @app.get("/fetch-full-profile")
 async def fetch_full_profile(request: Request):
