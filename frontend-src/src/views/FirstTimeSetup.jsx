@@ -25,12 +25,11 @@ const SetupWizard = ({
       <h1>First-Time Setup</h1>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Preferred Name</label>
-          <input type="text" name="preferredName" required />
+
         </div>
         <div className="form-group">
-          <label>Favorite Color</label>
-          <input type="text" name="favoriteColor" />
+          <label>What is your organization name?</label>
+          <input type="text" name="org_name" />
         </div>
         {/* Add more wizard steps or fields as needed */}
         

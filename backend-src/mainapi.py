@@ -716,6 +716,11 @@ async def complete_setup(request: Request):
         user_id = session_user["sub"]
         body = await request.json()
 
+        # Extract org_name from the request body
+        org_name = body.get("org_name")
+        if not org_name:
+            raise HTTPException(status_code=400, detail="org_name is required")
+
         # Get existing user metadata first
         token_url = f'https://{os.getenv("AUTH0_DOMAIN")}/oauth/token'
         token_payload = {
@@ -757,7 +762,7 @@ async def complete_setup(request: Request):
         updated_metadata = {
             **current_metadata,
             "completed_setup": True,
-            # Add any other metadata fields here
+            "org_name": org_name
         }
 
         # Patch user in Auth0 with merged metadata

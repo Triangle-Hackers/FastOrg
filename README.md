@@ -29,6 +29,7 @@ fastapi dev backend-src/mainapi.py
 ```
 
 ```bash
+cd frontend-src
 npm run dev
 ```
 
