@@ -165,3 +165,30 @@ async def create_org(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+    
+    
+@sub_router.get("/get-roster")
+async def get_roster(request: Request):
+    """
+    Retrieves the full roster of the authenticated user's organization.
+    """
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Get organization from user metadata
+    org_name = user.get("org_name")
+    if not org_name:
+        raise HTTPException(status_code=400, detail="User is not part of any organization")
+
+    client = MongoClient(os.getenv("MONGO_URI"))
+    db = client["memberdb"]
+    org_collection = db[org_name.lower().replace(" ", "")]
+
+    # Fetch all members
+    members = list(org_collection.find({}, {"_id": 0}))  # Exclude MongoDB ObjectId
+
+    client.close()
+
+    return {"organization": org_name, "roster": members}

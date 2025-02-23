@@ -321,25 +321,54 @@ async def protected_route(request: Request, token_data: dict = Depends(require_a
 @app.post("/join-org")
 async def join_org(
     invite_code: str,
-    data: dict):
-    client = MongoClient(os.getenv("MONGO_URI"))
-    db = client["memberdb"]
-    orgs_collection = db["organizations"]
-    org_doc = orgs_collection.find_one({"invite_code": invite_code})
+    data: dict,
+    request: Request):
+    try:
+        # Get the user from the session
+        user = request.session.get("user")
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not org_doc:
-        raise HTTPException(status_code=400, detail="Invalid Invite Code")
-    
-    org_name = org_doc["org_name"]
-    orgs_collection = db[org_name.lower().replace(" ", "_")]
-    orgs_collection.insert_one(data)
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        orgs_collection = db["organizations"]
+        org_doc = orgs_collection.find_one({"invite_code": invite_code})
 
-    csv_path = f"organizations/{org_name}.csv"
-    df = pd.DataFrame([data])
-    df.to_csv(csv_path, mode="a", header=False, index=False)
+        if not org_doc:
+            raise HTTPException(status_code=400, detail="Invalid Invite Code")
+        
+        org_name = org_doc["org_name"]
 
-    client.close()
-    return {"message": f"You joined {org_name}"}
+        # Update Auth0 user metadata with organization
+        auth0_client = await get_auth0_client()
+        auth0_response = auth0_client.patch(
+            f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/users/{user['sub']}",
+            json={
+                "user_metadata": {
+                    "org_name": org_name
+                }
+            }
+        )
+
+        if not auth0_response.ok:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to update user organization in Auth0"
+            )
+
+        # Update session with new org_name
+        user['org_name'] = org_name
+        request.session["user"] = user
+
+        # Store member data in organization's collection
+        org_collection = db[org_name.lower().replace(" ", "_")]
+        org_collection.insert_one(data)
+
+        client.close()
+        return {"message": f"You joined {org_name}"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Include the subroutes under the /protected prefix
@@ -418,3 +447,23 @@ async def verify_session(request: Request):
     except Exception as e:
         logger.error(f"Session verification error: {str(e)}")
         raise HTTPException(status_code=401, detail="Session verification failed")
+
+async def get_auth0_client() -> OAuth2Session:
+    """
+    Creates an authenticated client for Auth0 Management API
+    """
+    # Create OAuth2 session with client credentials
+    auth0_client = OAuth2Session(
+        client_id=os.getenv("AUTH0_CLIENT_ID"),
+        client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
+        token_endpoint=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token"
+    )
+    
+    # Get access token for Management API
+    token = auth0_client.fetch_token(
+        url=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+        grant_type="client_credentials",
+        audience=f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/"
+    )
+    
+    return auth0_client
