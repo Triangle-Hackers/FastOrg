@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './views/Home';
-import AIRequest from './views/AIRequest';
 import LandingPage from './views/LandingPage';
 import NotFound from './views/NotFound';
 import AIController from './controllers/AIControl';
