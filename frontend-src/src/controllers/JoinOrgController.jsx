@@ -6,6 +6,7 @@ const JoinOrgController = () => {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
     const [inviteCode, setInviteCode] = useState("");
+    const [showInvite, setShowInvite] = useState(true);
 
     // fetch schema from backend based on invite code
     const fetchSchema = async (inviteCode) => {
@@ -47,6 +48,7 @@ const JoinOrgController = () => {
             const schemaData = await response.json();
             console.log("Schema data:", schemaData);
             setSchema(schemaData);
+            setShowInvite(false);
 
         } catch (err) {
             console.log("Error:", err.message);
@@ -90,7 +92,9 @@ const JoinOrgController = () => {
             fetchSchema={fetchSchema} 
             submitMemberData={submitMemberData}
             inviteCode={inviteCode}
-            setInviteCode={setInviteCode} />
+            setInviteCode={setInviteCode}
+            showInvite={showInvite}
+        />
     );
 };
 
