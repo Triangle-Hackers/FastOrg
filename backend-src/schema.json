@@ -1,11 +1,13 @@
 {
-    "name": "Enter your name",
-    "class": "Year/Class",
-    "address": "Home address",
-    "gpa": "GPA",
-    "major": "Major",
-    "grad": "Expected Graduating Date",
-    "phone": "Phone Number",
-    "email": "Email Address",
-    "shirt": "T-Shirt Size"
-}
+    "fields": [
+      { "name": "name", "label": "Enter your name", "type": "text", "required": true },
+      { "name": "class", "label": "Year/Class", "type": "text", "required": true },
+      { "name": "address", "label": "Home address", "type": "text", "required": false },
+      { "name": "gpa", "label": "GPA", "type": "number", "required": false },
+      { "name": "major", "label": "Major", "type": "text", "required": true },
+      { "name": "grad", "label": "Expected Graduating Date", "type": "text", "required": true },
+      { "name": "phone", "label": "Phone Number", "type": "text", "required": false },
+      { "name": "email", "label": "Email Address", "type": "email", "required": true },
+      { "name": "shirt", "label": "T-Shirt Size", "type": "text", "required": false }
+    ]
+  }  

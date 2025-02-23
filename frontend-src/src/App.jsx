@@ -6,11 +6,27 @@ import AIController from './controllers/AIControl';
 import HomeController from './controllers/HomeControl';
 import SettingsController from './controllers/SettingsControl';
 import FirstTimeSetupController from './controllers/FirstTimeSetupControl';
+import JoinOrgController from './controllers/JoinOrgController';
 
 
 const App = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+
+  const handleAuthSuccess = async () => {
+    try {
+        const response = await fetch("http://127.0.0.1:8000/auth", {
+            credentials: "include",
+        });
+        const data = await response.json();
+
+        if (data.access_token) {
+            localStorage.setItem("access_token", data.access_token);
+        } else {
+        }
+    } catch (error) {
+    }
+};
 
   useEffect(() => {
     const checkSession = async () => {
@@ -21,6 +37,7 @@ const App = () => {
         
         if (response.ok) {
           setIsSessionValid(true);
+          handleAuthSuccess();
         } else {
           setIsSessionValid(false);
         }
@@ -47,6 +64,7 @@ const App = () => {
         <Route path="/ai-request" element={isSessionValid ? <AIController /> : <LandingPage />} />
         <Route path="/settings" element={isSessionValid ? <SettingsController /> : <LandingPage />} />
         <Route path="/setup" element={isSessionValid ? <FirstTimeSetupController /> : <LandingPage />} />
+        <Route path="/join-org" element={isSessionValid ? <JoinOrgController /> : <LandingPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

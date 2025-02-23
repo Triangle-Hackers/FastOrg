@@ -70,6 +70,7 @@ async def create_org(
         client = MongoClient(os.getenv("MONGO_URI"))
         db = client["memberdb"]
         orgs_collection = db["organizations"]
+        schema_collection = db["schemas"]
 
         # checks to see if org alr exists
         existing_org = orgs_collection.find_one({"org_name": formatted_org_name})
@@ -153,7 +154,9 @@ async def create_org(
             )
         
         # Create organization in MongoDB
-        create_org_mongo(formatted_org_name)
+        created = create_org_mongo(formatted_org_name)
+        if not created:
+            raise HTTPException(status_code=500, detail="Failed to Create Organization in MongoDB")
 
         # Generate a new unique code for each org
         invite_code = secrets.token_urlsafe(8)
@@ -168,6 +171,27 @@ async def create_org(
             "org_name": formatted_org_name,
             "invite_code": invite_code
         })
+        
+        schema_data = {
+            "org_name": formatted_org_name,
+                "fields": [
+                    { "name": "name", "label": "Enter your name", "type": "text", "required": True },
+                    { "name": "class", "label": "Year/Class", "type": "text", "required": True },
+                    { "name": "address", "label": "Home address", "type": "text", "required": False },
+                    { "name": "gpa", "label": "GPA", "type": "number", "required": False },
+                    { "name": "major", "label": "Major", "type": "text", "required": False },
+                    { "name": "grad", "label": "Expected Graduating Date", "type": "text", "required": True },
+                    { "name": "phone", "label": "Phone Number", "type": "text", "required": False },
+                    { "name": "email", "label": "Email Address", "type": "email", "required": True },
+                    { "name": "shirt", "label": "T-Shirt Size", "type": "text", "required": False }
+                    ]
+        }
+
+        existing_schema = schema_collection.find_one({"org_name": formatted_org_name})
+
+        if not existing_schema:
+            schema_collection.insert_one(schema_data)
+        
 
         client.close()
         
@@ -177,6 +201,7 @@ async def create_org(
             "invite_code": invite_code
         }
     except Exception as e:
+        logger.error(f"Error creating organization: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     
     

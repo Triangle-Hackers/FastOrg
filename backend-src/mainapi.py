@@ -92,7 +92,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # Frontend URL
     allow_credentials=True,  # Important for cookies/session
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,  # Cache preflight requests for 1 hour
@@ -170,6 +170,8 @@ async def require_auth(request: Request, token: str = Security(auth0_scheme)):
                     "e": key["e"]
                 }
                 break
+        if not rsa_key:
+            raise HTTPException(status_code=401, detail = "Invalid Token: No matching key found")
 
         if rsa_key:
             payload = jwt.decode(
@@ -357,9 +359,9 @@ async def join_org(
     request: Request):
     try:
         # Get the user from the session
-        user = request.session.get("user")
-        if not user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+        # user = request.session.get("user")
+        # if not user:
+        #     raise HTTPException(status_code=401, detail="Not authenticated")
 
         client = MongoClient(os.getenv("MONGO_URI"))
         db = client["memberdb"]
@@ -370,30 +372,43 @@ async def join_org(
             raise HTTPException(status_code=400, detail="Invalid Invite Code")
         
         org_name = org_doc["org_name"]
+        collection_name = org_name.replace(" ", "_").lower()
+        org_collection = db[collection_name]
+
+        # get the schema for validation
+        schema_collection = db["schemas"]
+        schema_doc = schema_collection.find_one({"org_name": org_name})
+        if not schema_doc:
+            raise HTTPException(status_code=404, detail="Schema Not Found")
 
         # Update Auth0 user metadata with organization
-        auth0_client = await get_auth0_client()
-        auth0_response = auth0_client.patch(
-            f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/users/{user['sub']}",
-            json={
-                "user_metadata": {
-                    "org_name": org_name
-                }
-            }
-        )
+        # auth0_client = await get_auth0_client()
+        # auth0_response = auth0_client.patch(
+        #     f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/users/{user['sub']}",
+        #     json={
+        #         "user_metadata": {
+        #             "org_name": org_name
+        #         }
+        #     }
+        # )
 
-        if not auth0_response.ok:
-            raise HTTPException(
-                status_code=400,
-                detail="Failed to update user organization in Auth0"
-            )
+        # if not auth0_response.ok:
+        #     raise HTTPException(
+        #         status_code=400,
+        #         detail="Failed to update user organization in Auth0"
+        #     )
+        
+        required_fields = [field["name"] for field in schema_doc["fields"] if field["required"]]
+        for field in required_fields:
+            if field not in data or not data[field]:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
 
         # Update session with new org_name
-        user['org_name'] = org_name
-        request.session["user"] = user
+        # user['org_name'] = org_name
+        # request.session["user"] = user
+        # data["user_id"] = user["sub"]
 
-        # Store member data in organization's collection
-        org_collection = db[org_name.lower().replace(" ", "_")]
         org_collection.insert_one(data)
 
         client.close()
@@ -401,6 +416,38 @@ async def join_org(
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/get-schema")
+async def get_schema(invite_code: str):
+    """
+    We finna get org schema based on invite code
+    """
+
+    try:
+
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+
+        orgs_collection = db["organizations"]
+        org_doc = orgs_collection.find_one({"invite_code": invite_code})
+
+        if not org_doc:
+            raise HTTPException(status_code=400, detail="Invalid Invite Code")
+        
+        org_name = org_doc["org_name"]
+
+        schema_collection = db["schemas"]
+        schema_doc = schema_collection.find_one({"org_name": org_name}, {"_id": 0})
+
+        if not schema_doc:
+            raise HTTPException(status_code=404, detail="Schema Not Found")
+        
+        return schema_doc
+    
+    except Exception as e:
+        logging.error(f"Error fetching schema: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 
 # Include the subroutes under the /protected prefix
