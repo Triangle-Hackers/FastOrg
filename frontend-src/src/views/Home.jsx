@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../styles/Home.css';
 import Navbar from '../components/Navbar';
 import { getCompletedSetup } from '../components/global_setup_state';
-import { useNavigate } from 'react-router-dom';
 
 const Home = ({ 
     userData, 
@@ -14,34 +13,28 @@ const Home = ({
     setRoster,
     infoMessage,
     setInfoMessage,
-    handleViewRoster, 
+    handleViewRoster 
 }) => {
     const navigate = useNavigate();
+
     useEffect(() => {
         if (!getCompletedSetup()) {
             navigate('/setup');
         }
+        handleViewRoster();
     }, []);
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
+
     return (
         <div className="home-container">
-            {/* Navbar */}
             <Navbar />
 
-            {/* Main Content */}
             <div className="main-content-wrapper">
-                <main className="content">
+                <div className="operations-info-container">
                     <section className="operations-section">
-                        <h2>Operations</h2>
-                        <div className="buttons">
-                            <button onClick={handleViewRoster}>View Full Roster</button>
-                            <button>Operation 2</button>
-                            <button>Operation 3</button>
-                        </div>
-                    </section>
-                    <section className="info-section">
-                        <h2>Information</h2>
+                        <h2>Roster View</h2>
                         {roster && roster.length > 0 ? (
                             <ul>
                                 {roster.map((member, index) => (
@@ -54,7 +47,10 @@ const Home = ({
                             <p>{infoMessage}</p>
                         )}
                     </section>
-                </main>
+
+                    <div className="buttons">
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -69,6 +65,6 @@ Home.propTypes = {
     infoMessage: PropTypes.string.isRequired,
     setInfoMessage: PropTypes.func.isRequired,
     handleViewRoster: PropTypes.func.isRequired,
-}
+};
 
 export default Home;
