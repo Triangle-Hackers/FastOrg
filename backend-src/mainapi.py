@@ -12,7 +12,7 @@ from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from .protectedroutes import sub_router  # Add this import
+from protectedroutes import sub_router  # Add this import
 from pymongo import MongoClient
 import pandas as pd
 import logging
@@ -105,7 +105,6 @@ oauth.register(
         "response_type": "code",
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
-    **{"use_state": False}
 )
 
 #########################

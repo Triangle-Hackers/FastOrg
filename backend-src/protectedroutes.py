@@ -5,7 +5,7 @@ import requests
 import secrets
 import smtplib, ssl 
 from authlib.integrations.requests_client import OAuth2Session
-from .create_org_mongo import create_org_mongo
+from create_org_mongo import create_org_mongo
 from pymongo import MongoClient
 
 
