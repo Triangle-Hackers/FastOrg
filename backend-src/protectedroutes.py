@@ -2,8 +2,16 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 import os
 import requests
+import secrets
+import smtplib, ssl 
 from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
+import logging
+
+logger = logging.getLogger(__name__)
+from pymongo import MongoClient
+
+
 sub_router = APIRouter()
 
 async def get_auth0_client():
@@ -44,11 +52,13 @@ async def get_auth0_client():
 @sub_router.get("/create-org/{org_name}")
 async def create_org(
     org_name: str,
-    request: Request
-):
+    request: Request):
     try:
-        # User is already authenticated due to the require_auth dependency
-        user = request.session["user"]
+        # Get user data safely
+        user = request.session.get("user")
+        if not user:
+            logger.error("No user found in session")
+            raise HTTPException(status_code=401, detail="Not authenticated")
         
         domain = os.getenv("AUTH0_DOMAIN")
         client_id = os.getenv("AUTH0_CLIENT_ID")
@@ -80,6 +90,7 @@ async def create_org(
         }
         
         auth0_org = None
+
         # Create organization in Auth0
         org_response = requests.post(
             f"https://{domain}/api/v2/organizations",
@@ -127,11 +138,30 @@ async def create_org(
         
         # Create organization in MongoDB
         create_org_mongo(org_name)
+
+        # Generate a new unique code for each org
+        invite_code = secrets.token_urlsafe(8)
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        orgs_collection = db["organizations"]
+
+        existing_code = orgs_collection.find_one({"invite_code": invite_code})
+        while existing_code:
+            invite_code = secrets.token_urlsafe(8)
+            existing_code = orgs_collection.find_one({"invite_code": invite_code})
+
+        # Saving the invite code
+        orgs_collection.insert_one({
+            "org_name": org_name,
+            "invite_code": invite_code
+        })
+
+        client.close()
         
         return {
             "message": f"Organization '{org_name}' created successfully",
-            "org_id": auth0_org['id']
+            "org_id": auth0_org['id'],
+            "invite_code": invite_code
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-  

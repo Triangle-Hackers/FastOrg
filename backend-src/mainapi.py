@@ -2,7 +2,7 @@ from typing import Union
 from fastapi import FastAPI, Depends, Request, HTTPException, Security
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi.security import OAuth2
+from fastapi.security import OAuth2, OAuth2AuthorizationCodeBearer
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 import os
@@ -11,10 +11,15 @@ from functools import wraps
 from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from pathlib import Path  # Add this import
+import json
+from jose import jwt
+from urllib.request import urlopen
+from authlib.integrations.requests_client import OAuth2Session
 from protectedroutes import sub_router  # Add this import
 import requests
-
+from pymongo import MongoClient
+import pandas as pd
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -27,10 +32,6 @@ logger = logging.getLogger(__name__)
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Add OAuth2 scheme for Swagger UI
 class OAuth2AuthorizationCodeBearer(OAuth2):
@@ -59,15 +60,32 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
     scopes={
         "openid": "OpenID Connect",
         "profile": "Profile",
-        "email": "Email"
+        "email": "Email",
+        "read:users": "Read user information"
     }
 )
 
-# Update FastAPI app configuration with proper CORS settings
+# Update FastAPI app configuration
 app = FastAPI(
-    title="OrgCRM API",
-    description="API with Auth0 authentication for organization management",
+    title="OrgCRM",
+    description="API with Auth0 authentication",
     version="1.0.0",
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    swagger_ui_init_oauth={
+        "clientId": os.getenv("AUTH0_CLIENT_ID"),
+        "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
+        "scopes": ["openid", "profile", "email"],
+        "usePkceWithAuthorizationCodeGrant": True,
+        "additionalQueryStringParams": {
+            "audience": os.getenv("AUTH0_AUDIENCE")
+        }
+    }
+)
+
+# Configure session middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("APP_SECRET_KEY")
 )
 
 app.add_middleware(
@@ -80,11 +98,7 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Configure session middleware
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("APP_SECRET_KEY")
-)
+
 
 # Configure OAuth for login flow
 oauth = OAuth()
@@ -95,21 +109,89 @@ oauth.register(
     client_kwargs={
         "scope": "openid profile email",
         "response_type": "code",
+        "audience": os.getenv("AUTH0_AUDIENCE")
     },
-    server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
+    server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration',
+    use_state=False
 )
 
 #########################
 # Authentication System #
 #########################
-logger2 = logging.getLogger("uvicorn.error")
-# Auth dependency for protected routes
+
+
+# Add these constants after the logging setup
+ALGORITHMS = ["RS256"]
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
+API_AUDIENCE = os.getenv('AUTH0_AUDIENCE')  # Add this to your .env file
+
+# Replace the require_auth function with this updated version
 async def require_auth(request: Request, token: str = Security(auth0_scheme)):
-    logger2.info(f"Session data: {request.session}")
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user
+    """
+    Validates JWT token and checks if user is authenticated.
+    """
+    try:
+        logger.info("Received token for validation")
+        
+        # Ensure token is properly formatted
+        if token.startswith('Bearer '):
+            token = token.split(' ')[1]
+        
+        # Log token format (first few characters)
+        if token:
+            logger.info(f"Token preview: {token[:10]}...")
+        
+        # Get the JWKS from Auth0
+        jwks = json.loads(
+            urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read()
+        )
+        
+        try:
+            # Add specific logging for header decoding
+            unverified_header = jwt.get_unverified_header(token)
+            logger.info(f"Successfully decoded token header: {unverified_header}")
+        except Exception as header_error:
+            logger.error(f"Error decoding token header: {str(header_error)}")
+            raise HTTPException(
+                status_code=401, 
+                detail=f"Error decoding token headers: {str(header_error)}"
+            )
+
+        # Verify the token
+        rsa_key = {}
+        
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n": key["n"],
+                    "e": key["e"]
+                }
+                break
+
+        if rsa_key:
+            payload = jwt.decode(
+                token,
+                rsa_key,
+                algorithms=ALGORITHMS,
+                audience=API_AUDIENCE,
+                issuer=f"https://{AUTH0_DOMAIN}/"
+            )
+            
+            # Store validated claims in request state
+            request.state.user = payload
+            return payload
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTClaimsError:
+        raise HTTPException(status_code=401, detail="Invalid claims")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 #######################
 # Authentication Flow #
@@ -149,16 +231,19 @@ async def login(request: Request):
 async def auth(request: Request):
     """
     OAuth2 callback endpoint that handles the response from Auth0.
-    This endpoint completes the authentication flow and establishes the user session.
     """
     try:
         logger.info("Starting auth callback processing")
         token = await oauth.auth0.authorize_access_token(request)
         
-        # Get user info directly instead of parsing id_token
+        # Get user info from Auth0's userinfo endpoint
         userinfo = await oauth.auth0.userinfo(token=token)
-
+        logger.info(f"Received user info: {userinfo}")
+        
+        # Store both token and userinfo in session
         request.session["user"] = userinfo
+        request.session["access_token"] = token.get("access_token")
+        
         return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
         logger.error(f"Auth callback error: {str(e)}")
@@ -204,26 +289,59 @@ async def home(request: Request):
 # Protected route example that requires authentication
 # Uses the require_auth dependency to ensure only authenticated users can access
 @app.get("/protected")
-async def protected_route(user: dict = Depends(require_auth)):
+async def protected_route(request: Request, token_data: dict = Depends(require_auth)):
     """
     Protected route that requires authentication to access.
-    Demonstrates use of the require_auth dependency for route protection.
-    
-    Args:
-        user: Dict containing user information, injected by require_auth dependency
-    
-    Returns:
-        dict: Protected content including user info and authentication provider
-    
-    Note:
-        The login_provider is extracted from the Auth0 'sub' claim which follows
-        the format 'provider|user_id'
     """
-    return {
-        "message": "This is a protected route",
-        "user": user,
-        "login_provider": user.get('sub', '').split('|')[0]
-    }
+    try:
+        # Get the user info from the session
+        user = request.session.get("user")
+        
+        if not user:
+            logger.info("No user in session, using token data")
+            # Instead of trying to fetch from Auth0 again, use the token_data
+            # The token_data already contains the necessary user information
+            user = {
+                "sub": token_data.get("sub"),
+                "email": token_data.get("email"),
+                "nickname": token_data.get("nickname"),
+                # Add any other relevant fields from token_data
+            }
+            # Store user info in session for future requests
+            request.session["user"] = user
+            
+        return {
+            "message": "This is a protected route",
+            "token_data": token_data,
+            "user_info": user,
+            "login_provider": token_data.get('sub', '').split('|')[0]
+        }
+    except Exception as e:
+        logger.error(f"Protected route error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/join-org")
+async def join_org(
+    invite_code: str,
+    data: dict):
+    client = MongoClient(os.getenv("MONGO_URI"))
+    db = client["memberdb"]
+    orgs_collection = db["organizations"]
+    org_doc = orgs_collection.find_one({"invite_code": invite_code})
+
+    if not org_doc:
+        raise HTTPException(status_code=400, detail="Invalid Invite Code")
+    
+    org_name = org_doc["org_name"]
+    orgs_collection = db[org_name.lower().replace(" ", "_")]
+    orgs_collection.insert_one(data)
+
+    csv_path = f"organizations/{org_name}.csv"
+    df = pd.DataFrame([data])
+    df.to_csv(csv_path, mode="a", header=False, index=False)
+
+    client.close()
+    return {"message": f"You joined {org_name}"}
 
 
 # Include the subroutes under the /protected prefix
