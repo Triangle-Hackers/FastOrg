@@ -79,8 +79,6 @@ const FirstTimeSetupController = () => {
       // Show the popup with the invite code
       setShowInvitePopup(true);
 
-      const updatedSetupData = {  'org_name': newInviteCode };
-
       // After the user sees the invite code (inside the popup), 
       // we might still proceed with the 'complete-setup' call
       // For demonstration, we're keeping it right here:
@@ -88,7 +86,7 @@ const FirstTimeSetupController = () => {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedSetupData),
+        body: JSON.stringify(setupData),
       });
 
       if (!res.ok) {

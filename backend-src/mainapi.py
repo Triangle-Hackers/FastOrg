@@ -755,14 +755,10 @@ async def complete_setup(request: Request):
         if not user_response.ok:
             raise HTTPException(status_code=400, detail="Failed to get current user metadata")
 
-        current_user = user_response.json()
-        current_metadata = current_user.get('user_metadata', {})
 
         # Merge existing metadata with new updates
         updated_metadata = {
-            **current_metadata,
             "completed_setup": True,
-            "org_name": org_name
         }
 
         # Patch user in Auth0 with merged metadata
