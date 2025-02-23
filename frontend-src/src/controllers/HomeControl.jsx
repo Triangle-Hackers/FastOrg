@@ -37,7 +37,7 @@ const HomeController = () => {
 
     const handleViewRoster = async () => {
         try {
-            const response = await fetch("http://localhost:8000/get-roster", {
+            const response = await fetch("http://localhost:8000/protected/get-roster", {
                 credentials: "include",
             });
             const data = await response.json();
