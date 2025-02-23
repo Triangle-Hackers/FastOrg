@@ -99,3 +99,24 @@ html, body {
 .buttons button:hover {
     background-color: darkviolet;
 }
+
+.roster-container {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+}
+
+.roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.roster-list li {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
