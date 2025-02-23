@@ -181,7 +181,7 @@ async def create_org(
                 'Content-Type': 'application/json'
             },
             json={
-                "user_metadata": { 'org_name' : invite_code }
+                "user_metadata": { 'org_name': formatted_org_name }
             }
         )
         
