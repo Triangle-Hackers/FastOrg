@@ -3,10 +3,24 @@ html, body {
     margin: 0;
 }
 
+.light {
+    --home-gradient: linear-gradient(135deg, #D8BFD8, #27408B);
+    --home-background: #ffffff;
+    --home-text: #333;
+    --home-button: purple;
+}
+
+.dark {
+    --home-gradient: linear-gradient(135deg, #614461, #0a173d);
+    --home-background: #3a302a;
+    --home-text: #ffffffe8;
+    --home-button: rgb(129, 22, 143);
+}
+
 .home-container {
     min-height: 100vh;
     margin: 0;
-    background: linear-gradient(135deg, #D8BFD8, #27408B); /* Light purple to darker royal blue */
+    background: var(--home-gradient); /* Light purple to darker royal blue */
     display: flex;
     flex-direction: column;
 }
@@ -36,7 +50,7 @@ html, body {
 .navbar li a {
     font-size: 1.5rem;
     text-decoration: none;
-    color: #333;
+    color: #fff;
 }
 
 .main-content-wrapper {
@@ -45,12 +59,13 @@ html, body {
     justify-content: center;
     align-items: center;
     padding: 2rem;
+    color: var(--home-text);
 }
 
 .operations-info-container {
     display: flex;
     flex-direction: column; /* Stack content vertically */
-    background-color: #fff;
+    background-color: var(--home-background);
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -70,7 +85,7 @@ html, body {
 }
 
 .buttons button {
-    background-color: purple;
+    background-color: var(--home-button);
     color: #fff;
     border: none;
     padding: 0.75rem 1.25rem;
