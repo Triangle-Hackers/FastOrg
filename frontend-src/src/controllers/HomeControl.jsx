@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import Home from '../views/Home';
 
 const HomeController = () => {
     // States for home page data
+    const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
     const [userData, setUserData] = useState(null);
     const [organizations, setOrganizations] = useState([]);
     const [roster, setRoster] = useState([]);
@@ -36,9 +38,15 @@ const HomeController = () => {
     };
 
     const handleViewRoster = async () => {
+        setLoading(true);
+        setError(null);
         try {
+            const token = await getAuth0Token();
             const response = await fetch("http://localhost:8000/protected/get-roster", {
                 credentials: "include",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                }
             });
             const data = await response.json();
 
