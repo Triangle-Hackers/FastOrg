@@ -16,7 +16,7 @@ import json
 from jose import jwt
 from urllib.request import urlopen
 from authlib.integrations.requests_client import OAuth2Session
-from .protectedroutes import sub_router  # Add this import
+from protectedroutes import sub_router  # Add this import
 from pymongo import MongoClient
 import pandas as pd
 import logging
@@ -110,8 +110,8 @@ oauth.register(
         "response_type": "code",
         "audience": os.getenv("AUTH0_AUDIENCE")
     },
-    server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
-    **{"use_state": False}
+    server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration',
+    use_state=False
 )
 
 #########################
