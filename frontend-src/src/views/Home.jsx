@@ -101,9 +101,9 @@ const Home = ({
                             </div>
 
                         ) : (
-                            <div>
+                            <div className="roster-container">
                                 {roster && roster.length > 0 ? (
-                                    <ul>
+                                    <ul className="roster-list">
                                         {roster.map((member, index) => (
                                             <li key={index}>
                                                 {Object.entries(member).map(([key, value]) => (
