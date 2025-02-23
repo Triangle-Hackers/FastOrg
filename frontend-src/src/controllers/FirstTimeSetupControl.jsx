@@ -35,7 +35,7 @@ const FirstTimeSetupController = () => {
       }
 
       const fullProfile = await profileRes.json();
-      const completed = fullProfile.user_metadata?.completed_setup;
+      const completed = fullProfile.user.user_metadata?.completed_setup;
 
       console.log(fullProfile);
       // If user has completed setup, redirect to home
