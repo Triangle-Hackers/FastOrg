@@ -1,13 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import '../styles/LandingPage.css';
-import { setCompletedSetup } from '../components/global_setup_state';
 
 const LandingPage = () => {
-
-    useEffect(() => {
-        setCompletedSetup(false);
-    }, []);
+    const { loginWithRedirect } = useAuth0();
 
     const handleGetStarted = async () => {
         try {

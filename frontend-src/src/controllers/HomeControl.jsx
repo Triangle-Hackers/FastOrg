@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
 import Home from '../views/Home';
 
 const HomeController = () => {
     // States for home page data
-    const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
     const [userData, setUserData] = useState(null);
     const [organizations, setOrganizations] = useState([]);
     const [roster, setRoster] = useState([]);
@@ -38,27 +36,20 @@ const HomeController = () => {
     };
 
     const handleViewRoster = async () => {
-        setLoading(true);
-        setError(null);
         try {
             const response = await fetch("http://localhost:8000/protected/get-roster", {
-
-                credentials: "include"
+                credentials: "include",
             });
             const data = await response.json();
 
             if (data.detail) {
                 setInfoMessage(`Error: ${data.detail}`);
-                setRoster([]);
             } else {
                 setRoster(data.roster);
                 setInfoMessage("");
             }
         } catch (error) {
-            setInfoMessage(`Failed to fetch roster.${error}`);
-            setRoster([]);
-        } finally {
-            setLoading(false);
+            setInfoMessage("Failed to fetch roster.");
         }
     };
 

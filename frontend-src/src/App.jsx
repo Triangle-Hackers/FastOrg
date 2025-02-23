@@ -6,7 +6,7 @@ import AIController from './controllers/AIControl';
 import HomeController from './controllers/HomeControl';
 import SettingsController from './controllers/SettingsControl';
 import FirstTimeSetupController from './controllers/FirstTimeSetupControl';
-import { getCompletedSetup } from './components/global_setup_state';
+
 
 const App = () => {
   const [isSessionValid, setIsSessionValid] = useState(false);
@@ -43,7 +43,7 @@ const App = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={isSessionValid ? <Navigate to="/home" replace /> : <LandingPage />} />
-        <Route path="/home" element={isSessionValid ? (getCompletedSetup ? <HomeController /> : <FirstTimeSetupController /> ): <LandingPage />} />
+        <Route path="/home" element={isSessionValid ? <HomeController /> : <LandingPage />} />
         <Route path="/ai-request" element={isSessionValid ? <AIController /> : <LandingPage />} />
         <Route path="/settings" element={isSessionValid ? <SettingsController /> : <LandingPage />} />
         <Route path="/setup" element={isSessionValid ? <FirstTimeSetupController /> : <LandingPage />} />

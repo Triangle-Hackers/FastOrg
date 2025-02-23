@@ -12,7 +12,7 @@ const Navbar = () => (
             </li>
             <li>
                 <NavLink to="/ai-request" end className="navbar-item" activeClassName="active">
-                    DeepControl
+                    DeepConsole
                 </NavLink>
             </li>
             <li className="navbar-item">
