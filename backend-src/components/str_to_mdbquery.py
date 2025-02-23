@@ -4,7 +4,7 @@ from typing import Any, Union
 import json
 from pymongo import MongoClient
 
-def execute_mql(query_input: str) -> Union[Any, str]:
+def execute_mql(query_input: str, org_name: str) -> Union[Any, str]:
     """
     1. If 'query_input' is 'NO', return a specific message.
     2. If 'query_input' is recognized as a valid MQL query 
@@ -24,20 +24,15 @@ def execute_mql(query_input: str) -> Union[Any, str]:
     # and has parentheses following the method call.
     
     # Example valid: db.users.find({ GPA: { $gt: 3 } })
-    mql_pattern = r"^db\.\w+\.\w+\([^)]*\)$"
-    match = re.match(mql_pattern, query_input.strip())
-    if match:
+    else:
         client = MongoClient(os.getenv("MONGO_URI"))
         db = client["memberdb"]
 
-        query_str = match.group(2)
-
         try:
             # Convert the query string to a dictionary
-            query_dict = json.loads(query_str)
-
+            query_dict = json.loads(query_input)
             # Perform the query
-            collection = db["organizations"]
+            collection = db[org_name]
             results = collection.find(query_dict)
 
             # Convert results to a list and return
@@ -47,4 +42,4 @@ def execute_mql(query_input: str) -> Union[Any, str]:
             return ""
 
     # Case 3: Neither "NO" nor recognized as MQL
-    return "Please try again"
+    return query_input
