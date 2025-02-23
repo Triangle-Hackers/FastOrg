@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SetupWizard from '../views/FirstTimeSetup';
+import { getCompletedSetup, setCompletedSetup } from '../components/global_setup_state';
 
 const FirstTimeSetupController = () => {
   const [loading, setLoading] = useState(true);
@@ -9,10 +10,10 @@ const FirstTimeSetupController = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isLoggedIn) {
+    if (!getCompletedSetup()) {
       checkIfNewUser();
     }
-  }, [isLoggedIn]);
+  });
 
   const checkIfNewUser = async () => {
     setLoading(true);
@@ -34,12 +35,16 @@ const FirstTimeSetupController = () => {
       }
 
       const fullProfile = await profileRes.json();
-      const completed = fullProfile.app_metadata?.completed_setup;
+      const completed = fullProfile.user_metadata?.completed_setup;
+
       console.log(fullProfile);
       // If user has completed setup, redirect to home
       if (completed) {
+        setCompletedSetup(true);
+        console.log(getCompletedSetup());
         navigate('/home');
       } else {
+        setCompletedSetup(false);
         setIsNewUser(true);
       }
     } catch (err) {
@@ -49,7 +54,6 @@ const FirstTimeSetupController = () => {
       setLoading(false);
     }
   };
-
 
   const handleFinishSetup = async (setupData) => {
     try {

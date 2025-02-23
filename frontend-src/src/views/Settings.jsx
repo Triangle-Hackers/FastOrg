@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import '../styles/Settings.css';
 import Navbar from '../components/Navbar';
 
@@ -10,17 +11,26 @@ const Settings = ({
 }) => {
     const [activeTab, setActiveTab] = useState('account');
     const [nickname, setNickname] = useState(user?.nickname || '');
+    const [mode, setMode] = useState('light');
 
-    const handleSubmit = (e) => {
+    const handleChangeMode = (e) => {
+        setMode(e.target.value);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        handleUpdateNickname(nickname);
+        try {
+            await handleUpdateNickname(nickname);
+        } catch (error) {
+            console.error('Error updating nickname:', error);
+        }
     };
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (
-        <div className="settings-container">
+        <div className={`settings-container ${mode}`}>
             <Navbar />
             <div className="toolbar">
                 <div className="user-info">
@@ -91,10 +101,9 @@ const Settings = ({
                             </div>
                             <div className="form-group">
                                 <label>Theme</label>
-                                <select defaultValue="light">
+                                <select value={mode} onChange={handleChangeMode}>
                                     <option value="light">Light</option>
                                     <option value="dark">Dark</option>
-                                    <option value="system">System Default</option>
                                 </select>
                             </div>
                             <div className="form-group">
@@ -121,5 +130,12 @@ const Settings = ({
         </div>
     );
 };
+
+Settings.propTypes = {
+    user: PropTypes.object.isRequired,
+    loading: PropTypes.bool.isRequired,
+    error: PropTypes.string,
+    handleUpdateNickname: PropTypes.func.isRequired,
+}
 
 export default Settings;
