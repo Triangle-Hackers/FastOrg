@@ -57,7 +57,7 @@ async def create_org(
     try:
         # Get user data safely
         user = request.session.get("user")
-
+        user_id = user['sub']
         formatted_org_name = re.sub(r'[^a-zA-Z0-9_-]', '', org_name).lower()
 
         if len(formatted_org_name) < 3:
@@ -87,7 +87,8 @@ async def create_org(
             "client_id": client_id,
             "client_secret": client_secret,
             "audience": f"https://{domain}/api/v2/",
-            "grant_type": "client_credentials"
+            "grant_type": "client_credentials",
+            "scope": "read:organizations read:users update:users"
         }
         
         response = requests.post(token_url, json=payload)
@@ -171,6 +172,24 @@ async def create_org(
             "org_name": formatted_org_name,
             "invite_code": invite_code
         })
+
+        get_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
+        patch_response = requests.patch(
+            get_url,
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                "user_metadata": { 'org_name' : invite_code }
+            }
+        )
+        
+        if not patch_response.ok:
+            raise HTTPException(
+                status_code=patch_response.status_code,
+                detail=f"Failed to update user metadata: {patch_response.text}"
+            )
         
         schema_data = {
             "org_name": formatted_org_name,
