@@ -7,6 +7,7 @@ import smtplib, ssl
 from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 from pymongo import MongoClient
@@ -56,10 +57,25 @@ async def create_org(
     try:
         # Get user data safely
         user = request.session.get("user")
+
+        formatted_org_name = re.sub(r'[^a-zA-Z0-9_-]', '', org_name).lower()
+
+        if len(formatted_org_name) < 3:
+            raise HTTPException(status_code=400, detail="Organization name must be at least 3 characters long.")
+        
         if not user:
             logger.error("No user found in session")
             raise HTTPException(status_code=401, detail="Not authenticated")
         
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        orgs_collection = db["organizations"]
+
+        # checks to see if org alr exists
+        existing_org = orgs_collection.find_one({"org_name": formatted_org_name})
+        if existing_org:
+            raise HTTPException(status_code=409, detail=f"Organization '{formatted_org_name}' already exists.") 
+
         domain = os.getenv("AUTH0_DOMAIN")
         client_id = os.getenv("AUTH0_CLIENT_ID")
         client_secret = os.getenv("AUTH0_CLIENT_SECRET")
@@ -96,7 +112,7 @@ async def create_org(
             f"https://{domain}/api/v2/organizations",
             headers=headers,
             json={
-                'name': org_name,
+                'name': formatted_org_name,
                 'display_name': org_name,
             }
         )
@@ -106,7 +122,7 @@ async def create_org(
         elif org_response.status_code == 409:  # Conflict - org already exists
             # Get existing organization details
             get_org_response = requests.get(
-                f"https://{domain}/api/v2/organizations/name/{org_name}",
+                f"https://{domain}/api/v2/organizations/name/{formatted_org_name}",
                 headers=headers
             )
             if not get_org_response.ok:
@@ -137,13 +153,10 @@ async def create_org(
             )
         
         # Create organization in MongoDB
-        create_org_mongo(org_name)
+        create_org_mongo(formatted_org_name)
 
         # Generate a new unique code for each org
         invite_code = secrets.token_urlsafe(8)
-        client = MongoClient(os.getenv("MONGO_URI"))
-        db = client["memberdb"]
-        orgs_collection = db["organizations"]
 
         existing_code = orgs_collection.find_one({"invite_code": invite_code})
         while existing_code:
@@ -152,7 +165,7 @@ async def create_org(
 
         # Saving the invite code
         orgs_collection.insert_one({
-            "org_name": org_name,
+            "org_name": formatted_org_name,
             "invite_code": invite_code
         })
 
