@@ -11,10 +11,12 @@ const HomeController = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [infoMessage, setInfoMessage] = useState("Requested information will appear here...");
+    const [inviteCode, setInviteCode] = useState(null);
 
     // Fetch user data and organizations on component mount
     useEffect(() => {
         fetchUserData();
+        fetchOrganizations();
     }, []);
 
     const fetchUserData = async () => {
@@ -36,6 +38,24 @@ const HomeController = () => {
             setLoading(false);
         }
     };
+
+    const fetchOrganizations = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch('http://localhost:8000/fetch-full-profile', {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            const inviteCodeLocal = data.user.user_metadata.invite_code;
+            setInviteCode(inviteCodeLocal);
+
+            } catch (err) {
+                setError('Error loading organizations');
+                console.error('Error:', err);
+            } finally {
+                setLoading(false);
+            }
+    }
 
     const handleViewRoster = async () => {
         setLoading(true);
@@ -74,6 +94,7 @@ const HomeController = () => {
             infoMessage={infoMessage}
             setInfoMessage={setInfoMessage}
             handleViewRoster={handleViewRoster}
+            inviteCode={inviteCode}
         />
     );
 };

@@ -9,7 +9,6 @@ const FirstTimeSetupController = () => {
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [error, setError] = useState(null);
-  const [done, setDone] = useState(false);
   const [showInvitePopup, setShowInvitePopup] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const navigate = useNavigate();
@@ -107,12 +106,6 @@ const FirstTimeSetupController = () => {
     }
   };
 
-  // Example form or button to trigger handleFinishSetup
-  // The "setupData" object would come from user input
-  const onSetupSubmit = () => {
-    const exampleSetupData = { org_name: 'ExampleOrg' };
-    handleFinishSetup(exampleSetupData);
-  };
 
   // Function to close popup
   const closeInvitePopup = () => {

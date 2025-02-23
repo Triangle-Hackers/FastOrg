@@ -179,7 +179,7 @@ async def create_org(request: Request):
         })
 
         updated_metadata = {
-            "org_name": formatted_org_name, "completed_setup": True
+            "org_name": formatted_org_name, "invite_code": invite_code, "completed_setup": True
         }
 
         get_url = f'https://{os.getenv("AUTH0_DOMAIN")}/api/v2/users/{user_id}'
