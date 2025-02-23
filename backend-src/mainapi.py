@@ -24,6 +24,7 @@ import logging
 from fastapi.middleware.cors import CORSMiddleware
 from components.schema_to_str import json_to_string
 from fastapi.openapi.utils import get_openapi
+from components.str_to_mdbquery import execute_mql
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -491,7 +492,6 @@ async def generate_mql(request: Request):
         if not prompt or not org_name:
             raise HTTPException(status_code=400, detail="Missing Required Parameters")
         
-        collection_name = org_name.replace(" ", "_").lower()
 
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
@@ -506,7 +506,7 @@ async def generate_mql(request: Request):
         
         # Create the completion request
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": f"Generate MongoDB query for: {prompt}"}
@@ -516,24 +516,9 @@ async def generate_mql(request: Request):
         )
         
         # Extract the MQL from response
-        mql_query = response.choices[0].message.content.strip()
+        mql_query = response.choices[0].message.content
 
-        try:
-            mql_query = json.loads(mql_query)
-        except:
-            raise HTTPException(status_code=400, detail="Invalid MongoDB query generated")
-
-        # Finna connect with databse
-        mongo_client = MongoClient(os.getenv("MONGO_URI"))
-        db = mongo_client["memberdb"]
-        org_collection = db[collection_name]
-
-        result = list(org_collection.find(eval(mql_query), {"_id": 0}))
-
-        return {
-            "query": mql_query,
-            "result": result
-        }
+        return { 'rows' : execute_mql(mql_query, org_name) }
         
     except Exception as e:
         return JSONResponse(

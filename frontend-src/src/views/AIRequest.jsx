@@ -60,13 +60,7 @@ const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loadin
                         </tr>
                     </thead>
                     <tbody>
-                        {result.map((row, index) => (
-                            <tr key={index}>
-                                {Object.values(row).map((value, i) => (
-                                    <td key={i}>{value}</td>
-                                ))}
-                            </tr>
-                        ))}
+                      
                     </tbody>
                 </table>
             </div>
@@ -95,31 +89,6 @@ const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loadin
                     )}
                 </div>
                 <div className="chat-box">
-                    <form onSubmit={handleTableGeneration} style={{ marginBottom: '1rem' }}>
-                        <label style={{ marginRight: '8px' }}>
-                            N:
-                            <input
-                                type="number"
-                                value={nValue}
-                                onChange={(e) => setNValue(e.target.value)}
-                                min="1"
-                                style={{ marginLeft: '4px', marginRight: '12px' }}
-                            />
-                        </label>
-
-                        <label style={{ marginRight: '8px' }}>
-                            M:
-                            <input
-                                type="number"
-                                value={mValue}
-                                onChange={(e) => setMValue(e.target.value)}
-                                min="1"
-                                style={{ marginLeft: '4px', marginRight: '12px' }}
-                            />
-                        </label>
-
-                        <button type="submit">Generate Table</button>
-                    </form>
 
                     <form onSubmit={(e) => {
                         e.preventDefault();

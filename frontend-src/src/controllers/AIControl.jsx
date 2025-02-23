@@ -11,29 +11,27 @@ const AIController = () => {
     const [orgName, setOrgName] = useState(null);
 
     useEffect(() => {
-        const fetchOrgName = async () => {
-            try {
-                const token = localStorage.getItem('access_token'); // Get token from storage
-                const response = await axios.get('http://127.0.0.1:8000/get-org-name', {
-                    withCredentials: true,
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.data && response.data.org_name) {
-                    setOrgName(response.data.org_name);
-                } else {
-                    setError('Failed to fetch organization name');
-                }
-            } catch (err) {
-                console.error('Error fetching organization name:', err);
-                setError('Error fetching organization details');
-            }
-        };
         fetchOrgName();
     }, []);
+
+    const fetchOrgName = async () => {
+        try {
+            const token = localStorage.getItem('access_token'); // Get token from storage
+            const profileRes = await fetch('http://localhost:8000/fetch-full-profile', {
+                credentials: 'include',
+            });
+            if (!profileRes.ok) {
+            throw new Error('Failed to fetch full profile');
+            }
+    
+            const fullProfile = await profileRes.json();
+            const org_name = fullProfile.user.user_metadata.org_name;
+            setOrgName(org_name);
+        } catch (err) {
+            console.error('Error fetching organization name:', err);
+            setError('Error fetching organization details');
+        }
+    };
 
     const handleAIRequest = async () => {
         if (!request.trim()) return;
@@ -44,7 +42,6 @@ const AIController = () => {
 
         setLoading(true);
         setError(null);
-
         try {
             const token = localStorage.getItem('access_token');
             const response = await axios.post(
@@ -60,14 +57,16 @@ const AIController = () => {
                     }
                 }
             );
+            
+            console.log(response);
 
-            if (response.data.result) {
-                setResult(response.data.result);
+            if (response.data) {
+                setResult(response.data);
             } else {
                 setError('No results found');
             }
         } catch (err) {
-            setError(err.response?.data?.detail || 'Error processing your request');
+            console.log(err);
         } finally {
             setLoading(false);
         }
