@@ -7,6 +7,7 @@ import smtplib, ssl
 from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 from pymongo import MongoClient
@@ -19,7 +20,7 @@ async def get_auth0_client():
     # Use Management API specific credentials
     client_id = os.getenv("AUTH0_MGMT_CLIENT_ID")
     client_secret = os.getenv("AUTH0_MGMT_CLIENT_SECRET")
-    
+
     # Get management API access token
     token_url = f"https://{domain}/oauth/token"
     payload = {
@@ -28,23 +29,23 @@ async def get_auth0_client():
         "audience": f"https://{domain}/api/v2/",
         "grant_type": "client_credentials"
     }
-    
+
     response = requests.post(token_url, json=payload)
-    
+
     # Add error handling for the token request
     if not response.ok:
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Failed to get Auth0 access token: {response.text}"
         )
-    
+
     token_data = response.json()
     if 'access_token' not in token_data:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid Auth0 response: {token_data}"
         )
-    
+
     # Create OAuth2Session with the access token
     client = OAuth2Session(token={"access_token": token_data["access_token"]})
     return client
@@ -56,10 +57,25 @@ async def create_org(
     try:
         # Get user data safely
         user = request.session.get("user")
+
+        formatted_org_name = re.sub(r'[^a-zA-Z0-9_-]', '', org_name).lower()
+
+        if len(formatted_org_name) < 3:
+            raise HTTPException(status_code=400, detail="Organization name must be at least 3 characters long.")
+        
         if not user:
             logger.error("No user found in session")
             raise HTTPException(status_code=401, detail="Not authenticated")
         
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        orgs_collection = db["organizations"]
+
+        # checks to see if org alr exists
+        existing_org = orgs_collection.find_one({"org_name": formatted_org_name})
+        if existing_org:
+            raise HTTPException(status_code=409, detail=f"Organization '{formatted_org_name}' already exists.") 
+
         domain = os.getenv("AUTH0_DOMAIN")
         client_id = os.getenv("AUTH0_CLIENT_ID")
         client_secret = os.getenv("AUTH0_CLIENT_SECRET")
@@ -96,7 +112,7 @@ async def create_org(
             f"https://{domain}/api/v2/organizations",
             headers=headers,
             json={
-                'name': org_name,
+                'name': formatted_org_name,
                 'display_name': org_name,
             }
         )
@@ -106,7 +122,7 @@ async def create_org(
         elif org_response.status_code == 409:  # Conflict - org already exists
             # Get existing organization details
             get_org_response = requests.get(
-                f"https://{domain}/api/v2/organizations/name/{org_name}",
+                f"https://{domain}/api/v2/organizations/name/{formatted_org_name}",
                 headers=headers
             )
             if not get_org_response.ok:
@@ -137,13 +153,10 @@ async def create_org(
             )
         
         # Create organization in MongoDB
-        create_org_mongo(org_name)
+        create_org_mongo(formatted_org_name)
 
         # Generate a new unique code for each org
         invite_code = secrets.token_urlsafe(8)
-        client = MongoClient(os.getenv("MONGO_URI"))
-        db = client["memberdb"]
-        orgs_collection = db["organizations"]
 
         existing_code = orgs_collection.find_one({"invite_code": invite_code})
         while existing_code:
@@ -152,7 +165,7 @@ async def create_org(
 
         # Saving the invite code
         orgs_collection.insert_one({
-            "org_name": org_name,
+            "org_name": formatted_org_name,
             "invite_code": invite_code
         })
 
@@ -174,12 +187,23 @@ async def get_roster(request: Request):
     Retrieves the full roster of the authenticated user's organization.
     """
     user = request.session.get("user")
+    
+    # Log the saved user data
+    logger.info(f"User data: {user}")
+    
     if not user:
+        logger.error("No user found in session")
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Log the user metadata to check its structure
+    logger.info(f"User metadata: {user.get('user_metadata')}")  # Log user metadata
+
     # Get organization from user metadata
-    org_name = user.get("org_name")
+    org_name = user.get("user_metadata", {}).get("org_name")  # Access org_name from user_metadata
+    logger.info(f"Retrieved organization name: {org_name}")  # Log the organization name
+
     if not org_name:
+        logger.error("User is not part of any organization")
         raise HTTPException(status_code=400, detail="User is not part of any organization")
 
     client = MongoClient(os.getenv("MONGO_URI"))
