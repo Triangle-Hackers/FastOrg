@@ -9,7 +9,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 8000
+# Create a startup script that ensures PORT is an integer
+RUN echo '#!/bin/sh\n\
+if [ -z "$PORT" ]; then\n\
+  PORT=8000\n\
+fi\n\
+exec uvicorn mainapi:app --host 0.0.0.0 --port $(($PORT))' > /app/start.sh && \
+chmod +x /app/start.sh
 
-# Use a direct shell command to ensure proper variable handling
-CMD uvicorn mainapi:app --host 0.0.0.0 --port 8000
+CMD ["/app/start.sh"]
