@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import '../styles/Home.css';
 import Navbar from '../components/Navbar';
+import { getCompletedSetup } from '../components/global_setup_state';
+import { useNavigate } from 'react-router-dom';
 
 const Home = ({ 
     userData, 
     loading, 
     error, 
 }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!getCompletedSetup()) {
+            navigate('/setup');
+        }
+    }, []);
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
     return (
