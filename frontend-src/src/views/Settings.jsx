@@ -50,7 +50,6 @@ const Settings = ({
                     <span>{user?.email}</span>
                 </div>
                 <div className="actions">
-                    <button>Home</button>
                     <button onClick={handleLogout}>Logout</button>
                 </div>
             </div>
