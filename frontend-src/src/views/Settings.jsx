@@ -30,6 +30,14 @@ const Settings = ({
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            window.location.href = 'http://localhost:8000/logout';
+        } catch (error) {
+            console.error('Error logging out:', error);
+        }
+    }
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
@@ -43,7 +51,7 @@ const Settings = ({
                 </div>
                 <div className="actions">
                     <button>Home</button>
-                    <button>Logout</button>
+                    <button onClick={handleLogout}>Logout</button>
                 </div>
             </div>
 
