@@ -2,7 +2,7 @@ from typing import Union
 from fastapi import FastAPI, Depends, Request, HTTPException, Security
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi.security import OAuth2
+from fastapi.security import OAuth2, OAuth2AuthorizationCodeBearer
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 import os
@@ -12,8 +12,11 @@ from openai import OpenAI
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from protectedroutes import sub_router  # Add this import
-
+from .protectedroutes import sub_router  # Add this import
+from pymongo import MongoClient
+import pandas as pd
+import logging
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -58,7 +61,7 @@ auth0_scheme = OAuth2AuthorizationCodeBearer(
     scopes={
         "openid": "OpenID Connect",
         "profile": "Profile",
-        "email": "Email"
+        "email": "Email",
     }
 )
 
@@ -67,6 +70,12 @@ app = FastAPI(
     title="OrgCRM API",
     description="API with Auth0 authentication for organization management",
     version="1.0.0",
+    swagger_ui_init_oauth={
+        "usePkceWithAuthorizationCodeGrant": True,
+        "clientId": os.getenv("AUTH0_CLIENT_ID"),
+        "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
+        "scopes": "openid profile email"
+    }
 )
 
 app.add_middleware(
@@ -96,6 +105,7 @@ oauth.register(
         "response_type": "code",
     },
     server_metadata_url=f'https://{os.getenv("AUTH0_DOMAIN")}/.well-known/openid-configuration'
+    **{"use_state": False}
 )
 
 #########################
@@ -240,6 +250,29 @@ async def protected_route(user: dict = Depends(require_auth)):
         "user": user,
         "login_provider": user.get('sub', '').split('|')[0]
     }
+
+@app.post("/join-org")
+async def join_org(
+    invite_code: str,
+    data: dict):
+    client = MongoClient(os.getenv("MONGO_URI"))
+    db = client["memberdb"]
+    orgs_collection = db["organizations"]
+    org_doc = orgs_collection.find_one({"invite_code": invite_code})
+
+    if not org_doc:
+        raise HTTPException(status_code=400, detail="Invalid Invite Code")
+    
+    org_name = org_doc["org_name"]
+    orgs_collection = db[org_name.lower().replace(" ", "_")]
+    orgs_collection.insert_one(data)
+
+    csv_path = f"organizations/{org_name}.csv"
+    df = pd.DataFrame([data])
+    df.to_csv(csv_path, mode="a", header=False, index=False)
+
+    client.close()
+    return {"message": f"You joined {org_name}"}
 
 
 # Include the subroutes under the /protected prefix
