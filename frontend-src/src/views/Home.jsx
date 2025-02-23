@@ -1,6 +1,5 @@
 
-import React, { useEffect } from 'react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 import '../styles/Home.css';
