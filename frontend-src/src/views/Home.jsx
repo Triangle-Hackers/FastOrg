@@ -24,7 +24,7 @@ const Home = ({
         }
     }, []);
 
-    const [mode, setMode] = useState(() => {
+    const [mode] = useState(() => {
             return localStorage.getItem('mode') || 'light';
         });
 
