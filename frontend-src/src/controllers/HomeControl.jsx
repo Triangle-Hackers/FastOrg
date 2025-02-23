@@ -42,6 +42,7 @@ const HomeController = () => {
         setError(null);
         try {
             const response = await fetch("http://localhost:8000/protected/get-roster", {
+
                 credentials: "include"
             });
             const data = await response.json();

@@ -21,7 +21,7 @@ const Home = ({
     useEffect(() => {
         if (!getCompletedSetup()) {
             navigate('/setup');
-
+        }
     }, []);
 
     const [isEditMode, setIsEditMode] = useState(false);
