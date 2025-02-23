@@ -95,7 +95,10 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_origins=["http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"],  # Frontend URL
     allow_credentials=True,  # Important for cookies/session
     allow_methods=["*"],
     allow_headers=["*"],
@@ -758,7 +761,7 @@ async def complete_setup(request: Request):
 
         # Merge existing metadata with new updates
         updated_metadata = {
-            "completed_setup": True,
+            
         }
 
         # Patch user in Auth0 with merged metadata

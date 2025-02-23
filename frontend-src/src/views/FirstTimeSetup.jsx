@@ -16,7 +16,7 @@ const SetupWizard = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formData = { /* gather form fields here */ };
+    const formData = { org_name: e.target.org_name.value };
     onFinishSetup(formData);
   };
 
