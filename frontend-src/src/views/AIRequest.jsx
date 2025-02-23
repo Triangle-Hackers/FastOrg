@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import '../styles/AIRequest.css';
 import Navbar from '../components/Navbar';
 
-const AIRequest = () => {
+const AIRequest = ({ request, setRequest, handleAIRequest, result, error, loading }) => {
     const [nValue, setNValue] = useState(1);
     const [mValue, setMValue] = useState(1);
     const [tableHTML, setTableHTML] = useState('');
@@ -45,6 +45,34 @@ const AIRequest = () => {
         setTableHTML(html);
     };
 
+    const renderResults = () => {
+        if (!result) return null;
+        
+        return (
+            <div className="query-results">
+                <h3>Query Results:</h3>
+                <table className="results-table">
+                    <thead>
+                        <tr>
+                            {result[0] && Object.keys(result[0]).map(key => (
+                                <th key={key}>{key}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {result.map((row, index) => (
+                            <tr key={index}>
+                                {Object.values(row).map((value, i) => (
+                                    <td key={i}>{value}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
     return (
         <div className={`ai-container ${mode}`}>
             
@@ -54,6 +82,8 @@ const AIRequest = () => {
             {/* AI Request Panel */}
             <div className="ai-panel">
                 <div className="responses">
+                    {error && <div className="error-message">{error}</div>}
+                    {renderResults()}
                     {tableHTML && (
                         <div className="result">
                             <h3>Generated Table:</h3>
@@ -98,12 +128,12 @@ const AIRequest = () => {
                         <textarea 
                             value={request} 
                             onChange={(e) => setRequest(e.target.value)} 
-                            placeholder="Enter your request..." 
+                            placeholder="Enter your query (e.g., 'Show members with GPA below 2.0')" 
                             rows={4} 
                             style={{ width: '100%' }} 
                         />
                         <button type="submit" disabled={loading}>
-                            {loading ? 'Processing...' : 'Submit'}
+                            {loading ? 'Processing...' : 'Submit Query'}
                         </button>
                     </form>
                 </div>

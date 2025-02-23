@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Dict, Any
 from fastapi import FastAPI, Depends, Request, HTTPException, Security, Header
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
@@ -23,6 +23,7 @@ import pandas as pd
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 from components.schema_to_str import json_to_string
+from fastapi.openapi.utils import get_openapi
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -55,9 +56,11 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=True)
 
 # Configure OAuth2 scheme
-auth0_scheme = OAuth2AuthorizationCodeBearer(
+oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
     tokenUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+    refreshUrl=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+    scheme_name="Auth0",
     scopes={
         "openid": "OpenID Connect",
         "profile": "Profile",
@@ -75,7 +78,6 @@ app = FastAPI(
     swagger_ui_init_oauth={
         "clientId": os.getenv("AUTH0_CLIENT_ID"),
         "clientSecret": os.getenv("AUTH0_CLIENT_SECRET"),
-        "scopes": ["openid", "profile", "email"],
         "usePkceWithAuthorizationCodeGrant": True,
         "additionalQueryStringParams": {
             "audience": os.getenv("AUTH0_AUDIENCE")
@@ -139,12 +141,20 @@ def decode_jwt(token):
 
 
 
-async def get_token(request: Request, authorization: str = Header(None)):
+async def get_token(request: Request, authorization: str = Header(default=None)):
+    """
+    Get token from either Authorization header or session
+    """
     token = None
-    if authorization and authorization.startswith("Bearer "):
+    
+    # Check Authorization header
+    if authorization and isinstance(authorization, str) and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
+    
+    # If no token in header, check session
     if not token:
         token = request.session.get("access_token")
+        
     return token
 
 
@@ -459,7 +469,7 @@ app.include_router(
 
 # OpenAI MQL generation endpoint
 @app.post("/generate-mql")
-async def generate_mql(prompt: str):
+async def generate_mql(request: Request):
     """
     Generates MongoDB query (MQL) based on natural language prompt using OpenAI
     Args:
@@ -467,6 +477,15 @@ async def generate_mql(prompt: str):
         schema: Optional collection schema information to guide query generation
     """
     try:
+        data = await request.json()
+        prompt = data.get("prompt")
+        org_name = data.get("org_name")
+        
+        if not prompt or not org_name:
+            raise HTTPException(status_code=400, detail="Missing Required Parameters")
+        
+        collection_name = org_name.replace(" ", "_").lower()
+
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
         # Construct system message based on schema presence
@@ -475,7 +494,8 @@ async def generate_mql(prompt: str):
         system_message += "There are two cases: 1) The user is asking for a query to retrieve data. 2) the user is asking for something else"
         system_message += """If the user is asking for a query to retrieve data, generate the MQL query and 
         nothing else! If the user is asking for something else, generate the word NO in capital letters and 
-        absolutely nothing else!"""
+        absolutely nothing else! Example query: 'Show members with GPA below 2.0' -> { 'gpa': { '$lt': 2.0 } }.
+        ONLY return the query in JSON format, without explanation or additional text."""
         
         # Create the completion request
         response = client.chat.completions.create(
@@ -489,11 +509,23 @@ async def generate_mql(prompt: str):
         )
         
         # Extract the MQL from response
-        mql = response.choices[0].message.content.strip()
+        mql_query = response.choices[0].message.content.strip()
+
+        try:
+            mql_query = json.loads(mql_query)
+        except:
+            raise HTTPException(status_code=400, detail="Invalid MongoDB query generated")
+
+        # Finna connect with databse
+        mongo_client = MongoClient(os.getenv("MONGO_URI"))
+        db = mongo_client["memberdb"]
+        org_collection = db[collection_name]
+
+        result = list(org_collection.find(eval(mql_query), {"_id": 0}))
 
         return {
-            "mql": mql,
-            "prompt": prompt,
+            "query": mql_query,
+            "result": result
         }
         
     except Exception as e:
@@ -504,6 +536,37 @@ async def generate_mql(prompt: str):
                 "message": "Failed to generate MongoDB query"
             }
         )
+    
+@app.get("/get-org-name")
+async def get_org_name(request: Request):
+    """
+    Fetches the organization name of the currently logged-in user.
+    """
+    try:
+        # Get token from request
+        token = await get_token(request)
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Verify token and get claims
+        token_data = await require_auth(request, token)
+        
+        # Connect to MongoDB
+        client = MongoClient(os.getenv("MONGO_URI"))
+        db = client["memberdb"]
+        users_collection = db["users"]
+        
+        # Find user's organization
+        user_doc = users_collection.find_one({"user_id": token_data["sub"]})
+        if not user_doc or "org_name" not in user_doc:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        
+        return {"org_name": user_doc["org_name"]}
+
+    except Exception as e:
+        logger.error(f"Error fetching organization name: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/verify-session")
 async def verify_session(request: Request):
@@ -727,3 +790,43 @@ async def complete_setup(request: Request):
         raise e
     except Exception as ex:
         raise HTTPException(status_code=500, detail=str(ex))
+
+# Update the security definitions
+app.openapi_schema = None  # Clear cached schema
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="OrgCRM",
+        version="1.0.0",
+        description="API with Auth0 authentication",
+        routes=app.routes,
+    )
+    
+    # Add security scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "Auth0": {
+            "type": "oauth2",
+            "flows": {
+                "authorizationCode": {
+                    "authorizationUrl": f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
+                    "tokenUrl": f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+                    "refreshUrl": f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+                    "scopes": {
+                        "openid": "OpenID Connect",
+                        "profile": "Profile",
+                        "email": "Email"
+                    }
+                }
+            }
+        }
+    }
+    
+    # Add security requirement to all routes
+    openapi_schema["security"] = [{"Auth0": ["openid", "profile", "email"]}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
