@@ -41,12 +41,8 @@ const HomeController = () => {
         setLoading(true);
         setError(null);
         try {
-            const token = await getAuth0Token();
             const response = await fetch("http://localhost:8000/protected/get-roster", {
-                credentials: "include",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                }
+                credentials: "include"
             });
             const data = await response.json();
 
@@ -58,7 +54,7 @@ const HomeController = () => {
                 setInfoMessage("");
             }
         } catch (error) {
-            setInfoMessage("Failed to fetch roster.");
+            setInfoMessage(`Failed to fetch roster.${error}`);
             setRoster([]);
         } finally {
             setLoading(false);

@@ -151,12 +151,12 @@ async def get_token(request: Request, authorization: str = Header(None)):
 
 
 # Replace the require_auth function with this updated version
-async def require_auth(request: Request, token: str = Depends(get_token)):
+async def require_auth(request: Request, token: str = Security(get_token)):
     # Log the token for debugging
     logger.info("Token from header or session: %s", token)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-        
+    
     try:
         # Get the JWKS from Auth0
         jwks = json.loads(urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json").read())

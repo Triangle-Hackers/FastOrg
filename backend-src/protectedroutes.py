@@ -20,7 +20,7 @@ async def get_auth0_client():
     # Use Management API specific credentials
     client_id = os.getenv("AUTH0_MGMT_CLIENT_ID")
     client_secret = os.getenv("AUTH0_MGMT_CLIENT_SECRET")
-    
+
     # Get management API access token
     token_url = f"https://{domain}/oauth/token"
     payload = {
@@ -29,23 +29,23 @@ async def get_auth0_client():
         "audience": f"https://{domain}/api/v2/",
         "grant_type": "client_credentials"
     }
-    
+
     response = requests.post(token_url, json=payload)
-    
+
     # Add error handling for the token request
     if not response.ok:
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Failed to get Auth0 access token: {response.text}"
         )
-    
+
     token_data = response.json()
     if 'access_token' not in token_data:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid Auth0 response: {token_data}"
         )
-    
+
     # Create OAuth2Session with the access token
     client = OAuth2Session(token={"access_token": token_data["access_token"]})
     return client
@@ -192,11 +192,18 @@ async def get_roster(request: Request):
     logger.info(f"User data: {user}")
     
     if not user:
+        logger.error("No user found in session")
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Log the user metadata to check its structure
+    logger.info(f"User metadata: {user.get('user_metadata')}")  # Log user metadata
+
     # Get organization from user metadata
-    org_name = user.get("org_name")
+    org_name = user.get("user_metadata", {}).get("org_name")  # Access org_name from user_metadata
+    logger.info(f"Retrieved organization name: {org_name}")  # Log the organization name
+
     if not org_name:
+        logger.error("User is not part of any organization")
         raise HTTPException(status_code=400, detail="User is not part of any organization")
 
     client = MongoClient(os.getenv("MONGO_URI"))
