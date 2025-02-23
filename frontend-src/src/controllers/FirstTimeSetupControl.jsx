@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SetupWizard from '../views/FirstTimeSetup';
 import { getCompletedSetup, setCompletedSetup } from '../components/global_setup_state';
 import InviteCodePopup from '../components/InviteCodePopup';
+import FirstTimeSetup from '../views/FirstTimeSetup';
 
 const FirstTimeSetupController = () => {
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,7 @@ const FirstTimeSetupController = () => {
       const completed = fullProfile.user.user_metadata?.completed_setup;
 
       console.log(fullProfile);
+      setCompletedSetup(true);
       // If user has completed setup, redirect to home
       if (completed) {
         setCompletedSetup(true);
@@ -61,11 +63,30 @@ const FirstTimeSetupController = () => {
 
   const handleFinishSetup = async (setupData) => {
     try {
-      let res = await fetch(`http://localhost:8000/create-org/${setupData.org_name}`, {
-        method: 'GET',
+      const userResponse = await fetch('http://localhost:8000/fetch-full-profile', {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(setupData),
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+
+      const userData = await userResponse.json();
+      console.log("User data fetched:", userData);
+
+      
+      const enrichedSetupData = {
+        ...setupData,
+        'session': { 'user': userData }
+      };
+
+      let res = await fetch('http://localhost:8000/protected/create-org', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(enrichedSetupData)
       });
 
       if (!res.ok) {
@@ -78,27 +99,7 @@ const FirstTimeSetupController = () => {
 
       // Show the popup with the invite code
       setShowInvitePopup(true);
-
-      // After the user sees the invite code (inside the popup), 
-      // we might still proceed with the 'complete-setup' call
-      // For demonstration, we're keeping it right here:
-      res = await fetch('http://localhost:8000/complete-setup', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(setupData),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to complete setup');
-      }
-
-      // In a real-world flow, you might:
-      // 1. Wait until the user clicks OK on the popup.
-      // 2. Then navigate('/home').
-      // For brevity, we do it immediately after the fetch call succeeds.
-      // So the user sees the popup (over the new page) or you can reorder as needed.
-
+      console.log('success???');
       navigate('/home');
     } catch (err) {
       setError('Error completing setup');
@@ -121,9 +122,6 @@ const FirstTimeSetupController = () => {
   return (
     <div>
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      
-      <button onClick={onSetupSubmit}>Finish Setup</button>
-
       {
         showInvitePopup && (
           <InviteCodePopup
@@ -132,6 +130,12 @@ const FirstTimeSetupController = () => {
           />
         )
       }
+    <SetupWizard
+    loading={loading}
+    isNewUser={isNewUser}
+    error={error}
+    onFinishSetup={handleFinishSetup} />
+      
     </div>
   );
 };
