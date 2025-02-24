@@ -36,9 +36,6 @@ ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
-# Define frontend URLs for different environments
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-
 # Add OAuth2 scheme for Swagger UI
 class OAuth2AuthorizationCodeBearer(OAuth2):
     def __init__(
@@ -102,7 +99,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://fastorg-production.up.railway.app"
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://your-frontend-domain.railway.app"  # Add your Railway frontend domain
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -238,7 +237,7 @@ async def login(request: Request):
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        return RedirectResponse(url=f"{FRONTEND_URL}/login", status_code=302)
+        return RedirectResponse(url="http://localhost:5173?error=login_failed", status_code=302)
 
 @app.get("/auth")
 async def auth(request: Request):
@@ -292,9 +291,9 @@ async def auth(request: Request):
         }
         request.session["access_token"] = access_token
         
-        return RedirectResponse(url=f"{FRONTEND_URL}/home")
+        return RedirectResponse(url="http://localhost:5173/home")
     except Exception as e:
-        return RedirectResponse(url=f"{FRONTEND_URL}?error=auth_failed", status_code=302)
+        return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
 
 
 @app.get("/logout")
@@ -305,7 +304,7 @@ async def logout(request: Request):
     request.session.clear()
     
     # Redirect to Auth0 logout with frontend return URL
-    return_url = FRONTEND_URL
+    return_url = "http://localhost:5173"
     logout_url = (
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
         f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"

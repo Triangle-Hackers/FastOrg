@@ -8,10 +8,6 @@ from authlib.integrations.requests_client import OAuth2Session
 from create_org_mongo import create_org_mongo
 import logging
 import re
-from dotenv import load_dotenv
-
-load_dotenv()
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 logger = logging.getLogger(__name__)
 from pymongo import MongoClient
