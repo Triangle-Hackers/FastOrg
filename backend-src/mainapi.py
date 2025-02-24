@@ -94,17 +94,26 @@ app.add_middleware(
     https_only=False   # Disable secure flag for local HTTP testing
 )
 
+# Add these environment variables after the existing load_dotenv(ENV_FILE)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")  # Default to local URL
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")   # Default to local URL
+
+# Update the existing CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173",
+    allow_origins=[
+        FRONTEND_URL,
+        "http://localhost:5173",
         "http://127.0.0.1:5173",
+        BACKEND_URL,
         "http://localhost:8000",
-        "http://127.0.0.1:8000"],  # Frontend URL
-    allow_credentials=True,  # Important for cookies/session
+        "http://127.0.0.1:8000"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=3600,  # Cache preflight requests for 1 hour
+    max_age=3600,
 )
 
 
@@ -222,7 +231,7 @@ async def login(request: Request):
     Initiates the OAuth2 authentication flow with Auth0.
     """
     try:
-        redirect_uri = "http://localhost:8000/auth"
+        redirect_uri = f"{BACKEND_URL}/auth"
         logger.info(f"Login attempt with redirect URI: {redirect_uri}")
         
         return await oauth.auth0.authorize_redirect(
@@ -234,7 +243,7 @@ async def login(request: Request):
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        return RedirectResponse(url="http://localhost:5173?error=login_failed", status_code=302)
+        return RedirectResponse(url=f"{FRONTEND_URL}?error=login_failed", status_code=302)
 
 @app.get("/auth")
 async def auth(request: Request):
@@ -288,9 +297,9 @@ async def auth(request: Request):
         }
         request.session["access_token"] = access_token
         
-        return RedirectResponse(url="http://localhost:5173/home")
+        return RedirectResponse(url=f"{FRONTEND_URL}/home")
     except Exception as e:
-        return RedirectResponse(url="http://localhost:5173?error=auth_failed", status_code=302)
+        return RedirectResponse(url=f"{FRONTEND_URL}?error=auth_failed", status_code=302)
 
 
 @app.get("/logout")
@@ -300,8 +309,7 @@ async def logout(request: Request):
     """
     request.session.clear()
     
-    # Redirect to Auth0 logout with frontend return URL
-    return_url = "http://localhost:5173"
+    return_url = FRONTEND_URL
     logout_url = (
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
         f"client_id={os.getenv('AUTH0_CLIENT_ID')}&"
