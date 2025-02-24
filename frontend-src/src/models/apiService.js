@@ -1,9 +1,15 @@
 /* eslint-disable no-useless-catch */
 import axios from 'axios';
+import config from '../config/env';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000',
-    withCredentials: true,
+    baseURL: config.backendUrl,
+    withCredentials: true,  // Ensures cookies and auth sessions are included
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+    },
 });
 
 export const generateMQL = async (prompt, schema) => {
@@ -14,3 +20,5 @@ export const generateMQL = async (prompt, schema) => {
         throw error;
     }
 };
+
+export default api;

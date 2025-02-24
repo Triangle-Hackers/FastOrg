@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import AIRequest from '../views/AIRequest';
+import fetchWithConfig from '../utils/fetchUtils';
+import api from '../models/apiService';
 
 const AIController = () => {
     /* Set states for api ai input vars */
@@ -16,12 +17,9 @@ const AIController = () => {
 
     const fetchOrgName = async () => {
         try {
-            const token = localStorage.getItem('access_token'); // Get token from storage
-            const profileRes = await fetch('http://localhost:8000/fetch-full-profile', {
-                credentials: 'include',
-            });
+            const profileRes = await fetchWithConfig('/fetch-full-profile');
             if (!profileRes.ok) {
-            throw new Error('Failed to fetch full profile');
+                throw new Error('Failed to fetch full profile');
             }
     
             const fullProfile = await profileRes.json();
@@ -43,20 +41,10 @@ const AIController = () => {
         setLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem('access_token');
-            const response = await axios.post(
-                "http://127.0.0.1:8000/generate-mql",
-                { 
-                    prompt: request, 
-                    org_name: orgName 
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+            const response = await api.post('/generate-mql', { 
+                prompt: request, 
+                org_name: orgName 
+            });
             
             console.log(response);
 
@@ -67,6 +55,7 @@ const AIController = () => {
             }
         } catch (err) {
             console.log(err);
+            setError('Failed to process AI request');
         } finally {
             setLoading(false);
         }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import Settings from '../views/Settings';
+import fetchWithConfig from '../utils/fetchUtils';
 
 const SettingsController = () => {
     const { user } = useAuth0();
@@ -15,9 +16,7 @@ const SettingsController = () => {
     const fetchUserData = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/verify-session', {
-                credentials: 'include'
-            });
+            const response = await fetchWithConfig('/verify-session');
             if (response.ok) {
                 const data = await response.json();
                 setUserData(data.user);
@@ -35,12 +34,8 @@ const SettingsController = () => {
     const handleUpdateNickname = async (newNickname) => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/update-nickname', {
+            const response = await fetchWithConfig('/update-nickname', {
                 method: 'PUT',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ nickname: newNickname })
             });
 
@@ -48,7 +43,6 @@ const SettingsController = () => {
                 throw new Error('Failed to update nickname');
             }
 
-            // Refresh user data after update
             await fetchUserData();
         } catch (err) {
             setError('Error updating nickname');
@@ -61,12 +55,8 @@ const SettingsController = () => {
     const handleUpdateSettings = async (settingsData) => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/settings', {
+            const response = await fetchWithConfig('/settings', {
                 method: 'PUT',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(settingsData)
             });
             
@@ -74,7 +64,6 @@ const SettingsController = () => {
                 throw new Error('Failed to update settings');
             }
             
-            // Refresh user data after update
             await fetchUserData();
         } catch (err) {
             setError('Error updating settings');
