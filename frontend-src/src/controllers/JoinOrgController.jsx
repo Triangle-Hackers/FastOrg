@@ -1,5 +1,6 @@
 import {useState, useEffect} from "react";
 import JoinOrg from "../views/JoinOrg";
+import fetchWithConfig from '../utils/fetchUtils';
 
 const JoinOrgController = () => {
     const [schema, setSchema] = useState(null);
@@ -29,14 +30,7 @@ const JoinOrgController = () => {
 
             console.log("Fetching schema for invite code:", inviteCode);
 
-            const response = await fetch(`http://127.0.0.1:8000/get-schema?invite_code=${inviteCode}`, {
-                // credentials: "include",
-                method: "GET",
-                headers: {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
-            });
+            const response = await fetchWithConfig(`/get-schema?invite_code=${inviteCode}`);
 
             console.log("Response:", response);
 
@@ -62,17 +56,13 @@ const JoinOrgController = () => {
             setError(null); // clear any existing errors
             setSuccessMessage(null); // clear any existing success messages
 
-            const response = await fetch(
-                `http://127.0.0.1:8000/join-org?invite_code=${inviteCode}`, 
+            const response = await fetchWithConfig(
+                `/join-org?invite_code=${inviteCode}`,
                 {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
                     body: JSON.stringify(formData),
-                    // credentials: "include",
                 }
-        );
+            );
 
             if (!response.ok) {
                 const errorData = await response.json();

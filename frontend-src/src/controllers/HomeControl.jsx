@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import Home from '../views/Home';
+import fetchWithConfig from '../utils/fetchUtils';
 
 const HomeController = () => {
     // States for home page data
@@ -22,9 +23,7 @@ const HomeController = () => {
     const fetchUserData = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/verify-session', {
-                credentials: 'include'
-            });
+            const response = await fetchWithConfig('/verify-session');
             if (response.ok) {
                 const data = await response.json();
                 setUserData(data.user);
@@ -42,29 +41,23 @@ const HomeController = () => {
     const fetchOrganizations = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/fetch-full-profile', {
-                credentials: 'include'
-            });
+            const response = await fetchWithConfig('/fetch-full-profile');
             const data = await response.json();
             const inviteCodeLocal = data.user.user_metadata.invite_code;
             setInviteCode(inviteCodeLocal);
-
-            } catch (err) {
-                setError('Error loading organizations');
-                console.error('Error:', err);
-            } finally {
-                setLoading(false);
-            }
+        } catch (err) {
+            setError('Error loading organizations');
+            console.error('Error:', err);
+        } finally {
+            setLoading(false);
+        }
     }
 
     const handleViewRoster = async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch("http://localhost:8000/protected/get-roster", {
-
-                credentials: "include"
-            });
+            const response = await fetchWithConfig('/protected/get-roster');
             const data = await response.json();
 
             if (data.detail) {
@@ -81,7 +74,6 @@ const HomeController = () => {
             setLoading(false);
         }
     };
-
 
     console.log("HomeController rendered");
     return (

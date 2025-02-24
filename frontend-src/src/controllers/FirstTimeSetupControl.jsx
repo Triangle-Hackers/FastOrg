@@ -4,6 +4,7 @@ import SetupWizard from '../views/FirstTimeSetup';
 import { getCompletedSetup, setCompletedSetup } from '../components/global_setup_state';
 import InviteCodePopup from '../components/InviteCodePopup';
 import FirstTimeSetup from '../views/FirstTimeSetup';
+import fetchWithConfig from '../utils/fetchUtils';
 
 const FirstTimeSetupController = () => {
   const [loading, setLoading] = useState(true);
@@ -23,17 +24,13 @@ const FirstTimeSetupController = () => {
     setLoading(true);
     try {
       // Verify session
-      const sessionRes = await fetch('http://localhost:8000/verify-session', {
-        credentials: 'include',
-      });
+      const sessionRes = await fetchWithConfig('/verify-session');
       if (!sessionRes.ok) {
         throw new Error('Not authenticated');
       }
 
       // Fetch full user profile
-      const profileRes = await fetch('http://localhost:8000/fetch-full-profile', {
-        credentials: 'include',
-      });
+      const profileRes = await fetchWithConfig('/fetch-full-profile');
       if (!profileRes.ok) {
         throw new Error('Failed to fetch full profile');
       }
@@ -62,9 +59,7 @@ const FirstTimeSetupController = () => {
 
   const handleFinishSetup = async (setupData) => {
     try {
-      const userResponse = await fetch('http://localhost:8000/fetch-full-profile', {
-        credentials: 'include',
-      });
+      const userResponse = await fetchWithConfig('/fetch-full-profile');
       
       if (!userResponse.ok) {
         throw new Error('Failed to fetch user profile');
@@ -79,9 +74,8 @@ const FirstTimeSetupController = () => {
         'session': { 'user': userData }
       };
 
-      let res = await fetch('http://localhost:8000/protected/create-org', {
+      let res = await fetchWithConfig('/protected/create-org', {
         method: 'POST',
-        credentials: 'include',
         headers: { 
           'Content-Type': 'application/json'
         },

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { setCompletedSetup } from './components/global_setup_state';
+import fetchWithConfig from './utils/fetchUtils';
 import LandingPage from './views/LandingPage';
 import NotFound from './views/NotFound';
 import AIController from './controllers/AIControl';
@@ -15,35 +17,41 @@ const App = () => {
 
   const handleAuthSuccess = async () => {
     try {
-        const response = await fetch("http://127.0.0.1:8000", {
-            credentials: "include",
-        });
-        const data = await response.json();
+      const response = await fetchWithConfig('/');
+      const data = await response.json();
 
-        if (data.access_token) {
-            localStorage.setItem("access_token", data.access_token);
-        } else {
-        }
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+      }
     } catch (error) {
+      console.error('Auth success handling failed:', error);
     }
-};
+  };
 
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('http://localhost:8000/verify-session', {
-          credentials: 'include'
-        });
+        const response = await fetchWithConfig('/verify-session');
         
         if (response.ok) {
           setIsSessionValid(true);
           handleAuthSuccess();
+          
+          // Check user metadata for completed setup
+          const profileRes = await fetchWithConfig('/fetch-full-profile');
+          if (profileRes.ok) {
+            const profile = await profileRes.json();
+            const hasOrgName = profile.user.user_metadata?.org_name;
+            setCompletedSetup(!!hasOrgName); // Convert to boolean
+          }
         } else {
           setIsSessionValid(false);
+          setCompletedSetup(false);
         }
       } catch (error) {
         console.error('Session check failed:', error);
         setIsSessionValid(false);
+        setCompletedSetup(false);
       } finally {
         setIsChecking(false);
       }
