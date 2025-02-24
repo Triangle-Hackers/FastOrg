@@ -24,6 +24,7 @@ import logging
 from fastapi.middleware.cors import CORSMiddleware
 from components.schema_to_str import json_to_string
 from fastapi.openapi.utils import get_openapi
+from components.str_to_mdbquery import execute_mql
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -34,9 +35,6 @@ logger = logging.getLogger(__name__)
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
-
-# Define frontend URLs for different environments
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 # Add OAuth2 scheme for Swagger UI
 class OAuth2AuthorizationCodeBearer(OAuth2):
@@ -96,12 +94,20 @@ app.add_middleware(
     https_only=False   # Disable secure flag for local HTTP testing
 )
 
+# Add these environment variables after the existing load_dotenv(ENV_FILE)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")  # Default to local URL
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")   # Default to local URL
+
+# Update the existing CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        FRONTEND_URL,
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://fastorg-production.up.railway.app"
+        BACKEND_URL,
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -225,7 +231,7 @@ async def login(request: Request):
     Initiates the OAuth2 authentication flow with Auth0.
     """
     try:
-        redirect_uri = "http://localhost:8000/auth"
+        redirect_uri = f"{BACKEND_URL}/auth"
         logger.info(f"Login attempt with redirect URI: {redirect_uri}")
         
         return await oauth.auth0.authorize_redirect(
@@ -237,7 +243,7 @@ async def login(request: Request):
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        return RedirectResponse(url=f"{FRONTEND_URL}/login", status_code=302)
+        return RedirectResponse(url=f"{FRONTEND_URL}?error=login_failed", status_code=302)
 
 @app.get("/auth")
 async def auth(request: Request):
@@ -303,7 +309,6 @@ async def logout(request: Request):
     """
     request.session.clear()
     
-    # Redirect to Auth0 logout with frontend return URL
     return_url = FRONTEND_URL
     logout_url = (
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?"
@@ -491,7 +496,6 @@ async def generate_mql(request: Request):
         if not prompt or not org_name:
             raise HTTPException(status_code=400, detail="Missing Required Parameters")
         
-        collection_name = org_name.replace(" ", "_").lower()
 
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
@@ -506,7 +510,7 @@ async def generate_mql(request: Request):
         
         # Create the completion request
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": f"Generate MongoDB query for: {prompt}"}
@@ -516,24 +520,9 @@ async def generate_mql(request: Request):
         )
         
         # Extract the MQL from response
-        mql_query = response.choices[0].message.content.strip()
+        mql_query = response.choices[0].message.content
 
-        try:
-            mql_query = json.loads(mql_query)
-        except:
-            raise HTTPException(status_code=400, detail="Invalid MongoDB query generated")
-
-        # Finna connect with databse
-        mongo_client = MongoClient(os.getenv("MONGO_URI"))
-        db = mongo_client["memberdb"]
-        org_collection = db[collection_name]
-
-        result = list(org_collection.find(eval(mql_query), {"_id": 0}))
-
-        return {
-            "query": mql_query,
-            "result": result
-        }
+        return { 'rows' : execute_mql(mql_query, org_name) }
         
     except Exception as e:
         return JSONResponse(
