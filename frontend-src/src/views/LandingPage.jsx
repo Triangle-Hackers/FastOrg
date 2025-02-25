@@ -13,7 +13,7 @@ const LandingPage = () => {
     const handleGetStarted = async () => {
         try {
             // Redirect to backend login endpoint
-            window.location.href = `${config.backendUrl}/login`;
+            window.location.href = `${config.externalUrl}/login`;
         } catch (error) {
             console.error('Login error:', error);
         }
