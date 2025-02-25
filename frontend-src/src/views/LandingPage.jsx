@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import '../styles/LandingPage.css';
 import { setCompletedSetup } from '../components/global_setup_state';
+import config from '../config/env';
 
 const LandingPage = () => {
 
@@ -12,7 +13,7 @@ const LandingPage = () => {
     const handleGetStarted = async () => {
         try {
             // Redirect to backend login endpoint
-            window.location.href = 'http://localhost:8000/login';
+            window.location.href = `${config.backendUrl}/login`;
         } catch (error) {
             console.error('Login error:', error);
         }
