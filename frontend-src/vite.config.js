@@ -13,7 +13,8 @@ export default defineConfig({
     host: true,
     allowedHosts: [
       'healthcheck.railway.app',
-      '.railway.app'
+      '.railway.app',
+      'fastorg.tech'
     ]
   }
 })
