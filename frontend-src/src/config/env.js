@@ -1,11 +1,14 @@
 const getBackendUrl = () => {
-  // For Vite, environment variables must be prefixed with VITE_
   return import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+};
+
+const getExternalUrl = () => {
+  return import.meta.env.VITE_EXTERNAL_URL || 'http://localhost:8000';
 };
 
 export const config = {
   backendUrl: getBackendUrl(),
-  // Add other environment-specific config here
+  externalUrl: getExternalUrl(),
 };
 
-export default config; 
+export default config;
