@@ -822,3 +822,14 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+@app.get("/test-env")
+async def test_env():
+    """
+    Test endpoint to verify environment variables (DO NOT USE IN PRODUCTION)
+    """
+    return {
+        "auth0_domain": os.getenv("AUTH0_DOMAIN", "not_set"),
+        "client_id": os.getenv("AUTH0_CLIENT_ID", "not_set"),
+        "audience": os.getenv("AUTH0_AUDIENCE", "not_set")
+    }
