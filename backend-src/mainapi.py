@@ -102,12 +102,10 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")   # Default to l
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        FRONTEND_URL,
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        BACKEND_URL,
-        "http://localhost:8000",
-        "http://127.0.0.1:8000"
+        "https://fastorg.tech",
+        "https://api.fastorg.tech",
+        "http://localhost:5173",  # For local development
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
