@@ -12,7 +12,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", sco
 client = gspread.authorize(creds)
 
 # List of organizations and their sheets
-list_organizations = "https://docs.google.com/spreadsheets/d/1YWPQhhhrnnns4XjwEJykUsYszygLtCRBY0_sJTrr594/edit?resourcekey=&gid=1850757024#gid=1850757024"
+list_organizations = "link to google drive page" # nvm, not using google drive
 organizations = client.open_by_url(list_organizations).worksheet("Form Responses 1")
 
 organization_data = organizations.get_all_records()
